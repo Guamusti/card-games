@@ -38,12 +38,10 @@ export default function WinStats({ holeCards, community, numOpponents, phase }: 
   useEffect(() => {
     if (holeCards.length < 2 || phase === "betting" || phase === "settled") return;
 
-    // Run simulation in a timeout to not block UI
     const timer = setTimeout(() => {
       const result = calculateProbabilities(holeCards, community, numOpponents, 800);
       setWinPct(result.winPct);
 
-      // Find the best achievable hand (highest rank with >0%)
       for (const rank of BEST_HAND_PRIORITY) {
         const pct = result.handDist[rank];
         if (pct && pct > 0) {
@@ -60,15 +58,15 @@ export default function WinStats({ holeCards, community, numOpponents, phase }: 
   if (holeCards.length < 2 || phase === "betting") return null;
 
   return (
-    <div className="flex flex-col items-center gap-0.5 bg-surface border border-border rounded-xl p-3 min-w-[5.5rem]">
-      <span className="text-[10px] text-muted">Win</span>
-      <span className={`text-lg sm:text-xl font-bold tabular-nums ${
+    <div className="flex flex-col items-center justify-center gap-1 bg-surface border border-border rounded-xl px-4 py-3 w-24 sm:w-28">
+      <span className="text-[9px] sm:text-[10px] text-muted uppercase tracking-wider">Win</span>
+      <span className={`text-base sm:text-lg font-bold tabular-nums leading-none ${
         winPct >= 50 ? "text-correct" : winPct >= 25 ? "text-foreground" : "text-accent"
       }`}>
         {winPct}%
       </span>
-      <span className="text-[10px] text-muted">{bestHand}</span>
-      <span className="text-sm font-semibold tabular-nums">{bestHandPct}%</span>
+      <span className="text-[9px] sm:text-[10px] text-muted leading-tight text-center">{bestHand}</span>
+      <span className="text-xs sm:text-sm font-semibold tabular-nums leading-none">{bestHandPct}%</span>
     </div>
   );
 }

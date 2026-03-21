@@ -92,6 +92,7 @@ interface PokerActions {
   skipHand: () => void;
   newRound: () => void;
   setCurrentRaise: (amount: number) => void;
+  setBlinds: (sb: number, bb: number) => void;
   reset: () => void;
 }
 
@@ -123,13 +124,13 @@ function postBlinds(state: PokerState): PokerState {
   const sbIdx = (state.dealerIndex + 1) % n;
   const bbIdx = (state.dealerIndex + 2) % n;
 
-  const sbAmount = Math.min(SMALL_BLIND, players[sbIdx].chips);
+  const sbAmount = Math.min(state.smallBlind, players[sbIdx].chips);
   players[sbIdx].chips -= sbAmount;
   players[sbIdx].currentBet = sbAmount;
   players[sbIdx].totalBet = sbAmount;
   if (players[sbIdx].chips === 0) players[sbIdx].isAllIn = true;
 
-  const bbAmount = Math.min(BIG_BLIND, players[bbIdx].chips);
+  const bbAmount = Math.min(state.bigBlind, players[bbIdx].chips);
   players[bbIdx].chips -= bbAmount;
   players[bbIdx].currentBet = bbAmount;
   players[bbIdx].totalBet = bbAmount;
@@ -190,7 +191,7 @@ function advancePhase(state: PokerState): PokerState {
   const players = state.players.map((p) => ({ ...p, currentBet: 0 }));
 
   let newState: PokerState = {
-    ...state, players, phase: nextPhase, minRaise: BIG_BLIND,
+    ...state, players, phase: nextPhase, minRaise: state.bigBlind,
     // Postflop: first active player after dealer
     activePlayerIndex: nextActiveIndex(players, state.dealerIndex, state.dealerIndex),
   };
@@ -545,7 +546,7 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
     const state = get();
     const players = state.players.map((p) => ({
       ...(p.isHuman ? createHumanPlayer() : createAIPlayer(0)),
-      chips: p.chips <= 0 ? INITIAL_CHIPS : p.chips,
+      chips: p.chips <= 0 ? state.bigBlind * 100 : p.chips,
       name: p.name,
       avatar: p.avatar,
       id: p.id,
@@ -555,11 +556,21 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
       ...initialState(),
       players,
       dealerIndex: (state.dealerIndex + 1) % state.players.length,
+      bigBlind: state.bigBlind,
+      smallBlind: state.smallBlind,
     }));
   },
 
   setCurrentRaise: (amount: number) => {
     set({ currentRaise: amount });
+  },
+
+  setBlinds: (sb: number, bb: number) => {
+    const state = get();
+    if (state.phase !== "betting") return;
+    const startChips = bb * 100;
+    const players = state.players.map((p) => ({ ...p, chips: startChips }));
+    set({ smallBlind: sb, bigBlind: bb, players, currentRaise: bb * 2 });
   },
 
   reset: () => {

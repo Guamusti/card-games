@@ -44,8 +44,8 @@ export interface EvaluatedHand {
   name: string;
 }
 
-export const AI_NAMES = ["Mia", "Lana", "Kate", "Ruby", "Sophia"];
-export const AI_AVATARS = ["👩🏼", "👩🏿", "👩🏽", "🐷", "👦🏼"];
+export const AI_NAMES = ["Alex", "Dana", "Riku", "Zara", "Leo"];
+export const AI_AVATARS = ["🦊", "🐱", "🦉", "🐼", "🦁"];
 
 export interface PokerPlayer {
   id: string; // "player" | "ai-0" | "ai-1" etc.
