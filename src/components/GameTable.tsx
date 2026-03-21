@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useGameStore } from "@/engine/store";
 import { useKeyboard } from "@/hooks/useKeyboard";
 import TopBar from "./ui/TopBar";
@@ -9,21 +10,42 @@ import ActionBar from "./ui/ActionBar";
 import Feedback from "./ui/Feedback";
 import BetSelector from "./ui/BetSelector";
 import StrategyChart from "./ui/StrategyChart";
+import WinCelebration from "./ui/WinCelebration";
+import { useCustomizeStore } from "@/engine/customize/store";
+
+const FELT_COLORS: Record<string, string | undefined> = {
+  none: undefined,
+  subtle: "#1a1a1a",
+  green: "#0a2e1a",
+  blue: "#0a1a2e",
+  wine: "#2e0a1a",
+};
 
 export default function GameTable() {
   useKeyboard();
 
   const { dealer, hands, activeHandIndex, phase } = useGameStore();
+  const tableFelt = useCustomizeStore((s) => s.tableFelt);
 
   const showTable = phase !== "betting";
+  const feltBg = FELT_COLORS[tableFelt];
 
   return (
-    <div className="flex flex-col min-h-[100dvh] overflow-y-auto">
+    <div
+      className="relative flex flex-col min-h-[100dvh] overflow-y-auto"
+      style={feltBg ? { backgroundColor: feltBg } : undefined}
+    >
       <TopBar />
 
-      <main className="flex-1 flex flex-col items-center justify-center gap-6 sm:gap-10 px-4 py-6 sm:py-8">
+      <main className="flex-1 flex flex-col items-center justify-center gap-5 sm:gap-8 px-4 py-4 sm:py-8">
         {!showTable ? (
           <div className="flex flex-col items-center gap-5 sm:gap-6">
+            <Link
+              href="/"
+              className="text-xs text-muted hover:text-foreground transition-colors uppercase tracking-widest"
+            >
+              ← Menu
+            </Link>
             <h1 className="text-2xl sm:text-3xl font-light tracking-tight">Blackjack</h1>
             <p className="text-xs sm:text-sm text-muted max-w-xs text-center leading-relaxed">
               Train your basic strategy. Every decision is tracked and corrected
@@ -76,7 +98,10 @@ export default function GameTable() {
         )}
       </main>
 
-      {/* Strategy reference chart v2 */}
+      {/* Win celebration overlay */}
+      <WinCelebration />
+
+      {/* Strategy reference chart */}
       <StrategyChart />
 
       <footer className="py-3 sm:py-4 text-center text-[10px] sm:text-xs text-muted border-t border-border safe-bottom">

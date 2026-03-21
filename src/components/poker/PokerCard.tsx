@@ -6,26 +6,29 @@ import { isRed } from "@/engine/types";
 import { useCustomizeStore } from "@/engine/customize/store";
 import { getCardBack } from "@/engine/customize/cardBacks";
 
-interface CardProps {
+interface PokerCardProps {
   card: CardType;
   hidden?: boolean;
-  index?: number;
+  delay?: number;
+  small?: boolean;
 }
 
-export default function Card({ card, hidden = false, index = 0 }: CardProps) {
+export default function PokerCard({ card, hidden = false, delay = 0, small = false }: PokerCardProps) {
   const red = isRed(card.suit);
   const colorClass = red ? "text-card-red" : "text-foreground";
   const { cardBack, showCardShadow, animationSpeed } = useCustomizeStore();
   const back = getCardBack(cardBack);
   const dur = animationSpeed === "fast" ? 0.2 : animationSpeed === "slow" ? 0.5 : 0.35;
 
+  const sizeClass = small ? "poker-card-sm" : "card-size";
+
   if (hidden) {
     return (
       <motion.div
-        initial={{ opacity: 0, y: -40, scale: 0.8 }}
+        initial={{ opacity: 0, y: -30, scale: 0.85 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: dur - 0.05, ease: [0.22, 1, 0.36, 1] }}
-        className="card-size rounded-lg border border-border flex items-center justify-center select-none"
+        transition={{ duration: dur - 0.05, delay, ease: [0.22, 1, 0.36, 1] }}
+        className={`${sizeClass} rounded-lg border border-border flex items-center justify-center select-none`}
         style={{
           backgroundColor: back.bg,
           backgroundImage: back.pattern || undefined,
@@ -44,36 +47,21 @@ export default function Card({ card, hidden = false, index = 0 }: CardProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -40, scale: 0.8 }}
+      initial={{ opacity: 0, y: -30, scale: 0.85 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: dur, ease: [0.22, 1, 0.36, 1] }}
-      className={`card-size rounded-lg border border-border bg-surface flex flex-col justify-between p-1.5 sm:p-2 select-none ${showCardShadow ? "shadow-sm" : ""}`}
+      transition={{ duration: dur, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={`${sizeClass} rounded-lg border border-border bg-surface flex flex-col justify-between p-1.5 sm:p-2 select-none ${showCardShadow ? "shadow-sm" : ""}`}
     >
-      {/* Top-left rank + suit */}
       <div className="flex flex-col items-start leading-none">
-        <span className={`card-rank font-semibold ${colorClass}`}>
-          {card.rank}
-        </span>
-        <span className={`card-suit ${colorClass} -mt-px`}>
-          {card.suit}
-        </span>
+        <span className={`card-rank font-semibold ${colorClass}`}>{card.rank}</span>
+        <span className={`card-suit ${colorClass} -mt-px`}>{card.suit}</span>
       </div>
-
-      {/* Center ghost suit */}
       <div className="flex items-center justify-center flex-1 pointer-events-none">
-        <span className={`card-center-suit ${colorClass} opacity-10`}>
-          {card.suit}
-        </span>
+        <span className={`card-center-suit ${colorClass} opacity-10`}>{card.suit}</span>
       </div>
-
-      {/* Bottom-right (inverted) */}
       <div className="flex flex-col items-end leading-none rotate-180">
-        <span className={`card-rank font-semibold ${colorClass}`}>
-          {card.rank}
-        </span>
-        <span className={`card-suit ${colorClass} -mt-px`}>
-          {card.suit}
-        </span>
+        <span className={`card-rank font-semibold ${colorClass}`}>{card.rank}</span>
+        <span className={`card-suit ${colorClass} -mt-px`}>{card.suit}</span>
       </div>
     </motion.div>
   );

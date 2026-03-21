@@ -29,7 +29,7 @@ export interface Hand {
   result?: "win" | "lose" | "push" | "blackjack";
 }
 
-export type GamePhase = "betting" | "playing" | "dealer-turn" | "settled";
+export type GamePhase = "betting" | "dealing" | "playing" | "dealer-turn" | "settled";
 
 export interface GameState {
   deck: Card[];

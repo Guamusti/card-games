@@ -46,34 +46,34 @@ body {
 
 /* ───── Card responsive sizing ───── */
 .card-size {
-  width: 3rem;
-  height: 4.25rem;
+  width: 4rem;
+  height: 5.75rem;
 }
 .card-rank {
-  font-size: 0.8rem;
+  font-size: 1rem;
   line-height: 1;
 }
 .card-suit {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   line-height: 1;
 }
 .card-center-suit {
-  font-size: 1.1rem;
+  font-size: 1.3rem;
 }
 
 @media (min-width: 640px) {
   .card-size {
-    width: 4.5rem;
-    height: 6.25rem;
+    width: 5.5rem;
+    height: 8rem;
   }
   .card-rank {
-    font-size: 1.15rem;
+    font-size: 1.35rem;
   }
   .card-suit {
-    font-size: 0.8rem;
+    font-size: 0.95rem;
   }
   .card-center-suit {
-    font-size: 1.5rem;
+    font-size: 1.8rem;
   }
 }
 

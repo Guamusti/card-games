@@ -1,7 +1,7 @@
 {
-  "name": "BJ Trainer",
-  "short_name": "BJ",
-  "description": "Blackjack basic strategy trainer",
+  "name": "Card Trainer",
+  "short_name": "Cards",
+  "description": "Master card games with math — minimal, precise, no fluff.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",

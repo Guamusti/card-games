@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { GameState, Action, Hand, StrategyFeedback, Card } from "./types";
+import type { GameState, GamePhase, Action, Hand, StrategyFeedback, Card } from "./types";
 import { handValue, isBlackjack, canSplit } from "./types";
 import { createDeck, drawCard } from "./deck";
 import { getOptimalAction } from "./strategy";
@@ -100,24 +100,22 @@ function settleHands(state: GameState): GameState {
       result = "lose";
     } else if (playerBJ && !dealerBJ) {
       result = "blackjack";
-      balance += hand.bet * 1.5;
+      // BJ pays 3:2 — bet was already deducted, so return bet + bet*1.5
+      balance += hand.bet + hand.bet * 1.5;
     } else if (dealerBJ && !playerBJ) {
       result = "lose";
     } else if (dealerBust) {
       result = "win";
-      balance += hand.bet;
+      // Win pays 1:1 — return bet + winnings
+      balance += hand.bet * 2;
     } else if (playerVal > dealerVal) {
       result = "win";
-      balance += hand.bet;
+      balance += hand.bet * 2;
     } else if (playerVal < dealerVal) {
       result = "lose";
     } else {
       result = "push";
-      // Return the bet on push (it was already deducted)
-    }
-
-    // On push, add back the bet
-    if (result === "push") {
+      // Push — return the original bet
       balance += hand.bet;
     }
 
@@ -151,42 +149,71 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     let deck = state.deck.length < 20 ? createDeck() : [...state.deck];
 
-    const d1 = draw(deck);
-    deck = d1.deck;
-    const p1 = draw(deck);
-    deck = p1.deck;
-    const d2 = draw(deck);
-    deck = d2.deck;
-    const p2 = draw(deck);
-    deck = p2.deck;
-
-    const hand: Hand = {
-      cards: [p1.card, p2.card],
-      bet: state.currentBet,
-      isDoubled: false,
-      isStanding: false,
-    };
+    // Draw all 4 cards upfront
+    const d1 = draw(deck); deck = d1.deck;
+    const p1 = draw(deck); deck = p1.deck;
+    const d2 = draw(deck); deck = d2.deck;
+    const p2 = draw(deck); deck = p2.deck;
 
     const newBalance = state.balance - state.currentBet;
+    const DELAY = 300; // ms between each card
 
-    let newState: GameState = {
+    // Step 1: empty table, dealing phase
+    set({
       ...state,
       deck,
-      dealer: { cards: [d1.card, d2.card], hidden: true },
-      hands: [hand],
+      dealer: { cards: [], hidden: true },
+      hands: [{ cards: [], bet: state.currentBet, isDoubled: false, isStanding: false }],
       activeHandIndex: 0,
-      phase: "playing",
+      phase: "dealing" as GamePhase,
       balance: newBalance,
       lastFeedback: null,
-    };
+    });
 
-    // Check for player blackjack
-    if (isBlackjack(hand.cards)) {
-      newState = playDealer(newState);
-      newState = settleHands(newState);
-    }
+    // Step 2: dealer card 1
+    setTimeout(() => {
+      const s = get();
+      set({ ...s, dealer: { ...s.dealer, cards: [d1.card] } });
+    }, DELAY);
 
-    set(newState);
+    // Step 3: player card 1
+    setTimeout(() => {
+      const s = get();
+      const hands = [...s.hands];
+      hands[0] = { ...hands[0], cards: [p1.card] };
+      set({ ...s, hands });
+    }, DELAY * 2);
+
+    // Step 4: dealer card 2 (hidden)
+    setTimeout(() => {
+      const s = get();
+      set({ ...s, dealer: { cards: [d1.card, d2.card], hidden: true } });
+    }, DELAY * 3);
+
+    // Step 5: player card 2, then transition to playing
+    setTimeout(() => {
+      const s = get();
+      const hand: Hand = {
+        cards: [p1.card, p2.card],
+        bet: state.currentBet,
+        isDoubled: false,
+        isStanding: false,
+      };
+
+      let newState: GameState = {
+        ...s,
+        hands: [hand],
+        phase: "playing",
+      };
+
+      // Check for player blackjack
+      if (isBlackjack(hand.cards)) {
+        newState = playDealer(newState);
+        newState = settleHands(newState);
+      }
+
+      set(newState);
+    }, DELAY * 4);
   },
 
   hit: () => {

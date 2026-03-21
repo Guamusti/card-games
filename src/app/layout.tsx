@@ -3,13 +3,13 @@ import "@/styles/globals.css";
 import { PwaRegister } from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
-  title: "BJ Trainer",
-  description: "Blackjack strategy trainer — minimal, precise, no fluff.",
+  title: "Card Trainer",
+  description: "Master card games with math — minimal, precise, no fluff.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "BJ Trainer",
+    title: "Card Trainer",
   },
 };
 
@@ -36,7 +36,7 @@ export default function RootLayout({
         />
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
-      <body className="min-h-[100dvh] overflow-hidden">
+      <body>
         {children}
         <PwaRegister />
       </body>

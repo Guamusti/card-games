@@ -9,6 +9,8 @@ export default function ActionBar() {
   const { phase, hands, activeHandIndex, dealer, hit, stand, double, split, deal, newRound } =
     useGameStore();
 
+  if (phase === "dealing") return null;
+
   if (phase === "betting") {
     return (
       <div className="flex justify-center">
@@ -107,7 +109,7 @@ function ActionButton({
   const peekBorder = peeking
     ? isCorrect
       ? "border-correct ring-1 ring-correct"
-      : "border-accent ring-1 ring-accent"
+      : "border-amber-500 ring-1 ring-amber-500"
     : "";
 
   return (
@@ -138,13 +140,13 @@ function ActionButton({
           className={`absolute -top-9 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded text-[10px] sm:text-xs font-semibold whitespace-nowrap z-10 ${
             isCorrect
               ? "bg-correct text-white"
-              : "bg-accent text-white"
+              : "bg-amber-500 text-white"
           }`}
         >
-          {isCorrect ? "✓ Correct" : `✗ Play: ${optimal?.charAt(0).toUpperCase()}${optimal?.slice(1)}`}
+          {isCorrect ? "Good play" : `Optimal: ${optimal}`}
           <div
             className={`absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent ${
-              isCorrect ? "border-t-correct" : "border-t-accent"
+              isCorrect ? "border-t-correct" : "border-t-amber-500"
             }`}
           />
         </div>
