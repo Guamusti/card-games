@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+/* ───── Light theme (default) ───── */
+@theme {
+  --color-background: #fafafa;
+  --color-foreground: #0a0a0a;
+  --color-muted: #737373;
+  --color-border: #e5e5e5;
+  --color-surface: #ffffff;
+  --color-accent: #dc2626;
+  --color-correct: #16a34a;
+  --color-card-red: #b91c1c;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* ───── Dark theme ───── */
+.dark {
+  --color-background: #0a0a0a;
+  --color-foreground: #fafafa;
+  --color-muted: #737373;
+  --color-border: #262626;
+  --color-surface: #141414;
+  --color-accent: #ef4444;
+  --color-correct: #22c55e;
+  --color-card-red: #ef4444;
+}
+
+/* ───── Base ───── */
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+::selection {
+  background-color: var(--color-foreground);
+  color: var(--color-background);
+}
+
+/* ───── Card responsive sizing ───── */
+.card-size {
+  width: 3rem;
+  height: 4.25rem;
+}
+.card-rank {
+  font-size: 0.8rem;
+  line-height: 1;
+}
+.card-suit {
+  font-size: 0.6rem;
+  line-height: 1;
+}
+.card-center-suit {
+  font-size: 1.1rem;
+}
+
+@media (min-width: 640px) {
+  .card-size {
+    width: 4.5rem;
+    height: 6.25rem;
+  }
+  .card-rank {
+    font-size: 1.15rem;
+  }
+  .card-suit {
+    font-size: 0.8rem;
+  }
+  .card-center-suit {
+    font-size: 1.5rem;
+  }
+}
+
+/* ───── Animations ───── */
+@keyframes animate-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: animate-in 0.2s ease-out;
+}
+
+/* ───── PWA standalone: safe areas ───── */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-top { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
