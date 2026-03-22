@@ -10,11 +10,17 @@ export type CardBack =
   | "waves"
   | "minimal"
   | "crosshatch"
-  | "dots";
+  | "dots"
+  | "tartan"
+  | "hexagons"
+  | "zigzag"
+  | "circles";
 
 export type AccentColor = "red" | "blue" | "purple" | "emerald" | "amber" | "rose";
 
 export type TableFelt = "none" | "subtle" | "green" | "blue" | "wine";
+
+export type SuitColorScheme = "classic" | "four-color" | "blue-red" | "mono";
 
 export interface CustomizeState {
   cardBack: CardBack;
@@ -22,6 +28,8 @@ export interface CustomizeState {
   tableFelt: TableFelt;
   animationSpeed: "slow" | "normal" | "fast";
   showCardShadow: boolean;
+  hapticFeedback: boolean;
+  suitColors: SuitColorScheme;
 }
 
 interface CustomizeActions {
@@ -30,6 +38,8 @@ interface CustomizeActions {
   setTableFelt: (felt: TableFelt) => void;
   setAnimationSpeed: (speed: "slow" | "normal" | "fast") => void;
   setShowCardShadow: (show: boolean) => void;
+  setHapticFeedback: (on: boolean) => void;
+  setSuitColors: (scheme: SuitColorScheme) => void;
 }
 
 export type CustomizeStore = CustomizeState & CustomizeActions;
@@ -59,6 +69,8 @@ const defaults: CustomizeState = {
   tableFelt: "none",
   animationSpeed: "normal",
   showCardShadow: true,
+  hapticFeedback: true,
+  suitColors: "classic",
 };
 
 export const useCustomizeStore = create<CustomizeStore>((set, get) => ({
@@ -84,5 +96,13 @@ export const useCustomizeStore = create<CustomizeStore>((set, get) => ({
   setShowCardShadow: (showCardShadow) => {
     set({ showCardShadow });
     saveState({ ...get(), showCardShadow });
+  },
+  setHapticFeedback: (hapticFeedback) => {
+    set({ hapticFeedback });
+    saveState({ ...get(), hapticFeedback });
+  },
+  setSuitColors: (suitColors) => {
+    set({ suitColors });
+    saveState({ ...get(), suitColors });
   },
 }));

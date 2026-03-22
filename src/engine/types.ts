@@ -52,6 +52,17 @@ export function isRed(suit: Suit): boolean {
   return suit === "♥" || suit === "♦";
 }
 
+const SUIT_VAR_MAP: Record<string, string> = {
+  "♠": "var(--color-suit-spade)",
+  "♥": "var(--color-suit-heart)",
+  "♦": "var(--color-suit-diamond)",
+  "♣": "var(--color-suit-club)",
+};
+
+export function suitColor(suit: string): string {
+  return SUIT_VAR_MAP[suit] || "var(--color-foreground)";
+}
+
 export function cardValue(card: Card): number {
   if (card.rank === "A") return 11;
   if (["K", "Q", "J"].includes(card.rank)) return 10;

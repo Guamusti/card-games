@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePokerStore } from "@/engine/poker/store";
+import { useHaptic } from "@/hooks/useHaptic";
 
 export default function PokerActionBar() {
   const {
@@ -12,6 +13,7 @@ export default function PokerActionBar() {
 
   const [showRaisePanel, setShowRaisePanel] = useState(false);
   const [raiseAmount, setRaiseAmount] = useState(0);
+  const haptic = useHaptic();
 
   const playerIdx = players.findIndex((p) => p.isHuman);
   const player = players[playerIdx];
@@ -29,6 +31,11 @@ export default function PokerActionBar() {
         </button>
       </div>
     );
+  }
+
+  // Dealing (cards being dealt)
+  if (phase === "dealing") {
+    return <div className="text-xs text-muted text-center animate-pulse">Dealing...</div>;
   }
 
   // Settled
@@ -95,7 +102,11 @@ export default function PokerActionBar() {
   const maxRaise = player.chips + player.currentBet;
   const effectiveRaise = raiseAmount > 0 ? raiseAmount : minRaiseTotal;
 
-  const oneBB = maxBet + bigBlind;
+  // BB button adds 1BB to current raise amount each click
+  const addOneBB = () => {
+    const current = raiseAmount > 0 ? raiseAmount : minRaiseTotal;
+    setRaiseAmount(Math.min(current + bigBlind, maxRaise));
+  };
   const halfPot = maxBet + Math.floor(pot / 2);
   const potRaise = maxBet + pot;
 
@@ -112,7 +123,7 @@ export default function PokerActionBar() {
           >
             {/* Slider row */}
             <div className="flex items-center gap-3">
-              <span className="text-xs text-muted tabular-nums">↑ {effectiveRaise}</span>
+              <span className="text-xs text-muted tabular-nums min-w-[3rem]">↑ {effectiveRaise}</span>
               <input
                 type="range"
                 min={minRaiseTotal}
@@ -137,16 +148,16 @@ export default function PokerActionBar() {
             {/* Quick buttons */}
             <div className="flex gap-2">
               <button
-                onClick={() => setRaiseAmount(Math.min(oneBB, maxRaise))}
+                onClick={addOneBB}
                 className="flex-1 py-2 text-xs font-medium rounded-lg bg-border/50 hover:bg-border transition-colors"
               >
-                1 BB
+                +1 BB
               </button>
               <button
                 onClick={() => setRaiseAmount(Math.min(halfPot, maxRaise))}
                 className="flex-1 py-2 text-xs font-medium rounded-lg bg-border/50 hover:bg-border transition-colors"
               >
-                1/2 Pot
+                ½ Pot
               </button>
               <button
                 onClick={() => setRaiseAmount(Math.min(potRaise, maxRaise))}
@@ -172,14 +183,14 @@ export default function PokerActionBar() {
       <div className="flex justify-center gap-2 w-full max-w-md">
         {canCheck ? (
           <button
-            onClick={check}
+            onClick={() => { haptic.tap(); check(); }}
             className="flex-1 py-3 text-sm font-medium rounded-lg border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all"
           >
             Check
           </button>
         ) : (
           <button
-            onClick={call}
+            onClick={() => { haptic.tap(); call(); }}
             className="flex-1 py-3 text-sm font-medium rounded-lg border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all"
           >
             Call {toCall}
@@ -188,6 +199,7 @@ export default function PokerActionBar() {
 
         <button
           onClick={() => {
+            haptic.tap();
             if (showRaisePanel) {
               raise(effectiveRaise);
               setShowRaisePanel(false);
@@ -204,6 +216,7 @@ export default function PokerActionBar() {
 
         <button
           onClick={() => {
+            haptic.heavy();
             setShowRaisePanel(false);
             allIn();
           }}
@@ -216,7 +229,7 @@ export default function PokerActionBar() {
 
       {/* Fold - separate, less prominent */}
       <button
-        onClick={() => { setShowRaisePanel(false); fold(); }}
+        onClick={() => { haptic.tap(); setShowRaisePanel(false); fold(); }}
         className="text-xs text-muted hover:text-accent transition-colors uppercase tracking-widest"
       >
         Fold

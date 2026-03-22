@@ -10,6 +10,10 @@
   --color-accent: #dc2626;
   --color-correct: #16a34a;
   --color-card-red: #b91c1c;
+  --color-suit-spade: #0a0a0a;
+  --color-suit-heart: #b91c1c;
+  --color-suit-diamond: #b91c1c;
+  --color-suit-club: #0a0a0a;
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
@@ -24,6 +28,74 @@
   --color-accent: #ef4444;
   --color-correct: #22c55e;
   --color-card-red: #ef4444;
+  --color-suit-spade: #fafafa;
+  --color-suit-heart: #ef4444;
+  --color-suit-diamond: #ef4444;
+  --color-suit-club: #fafafa;
+}
+
+/* ───── Accent color overrides ───── */
+[data-accent="blue"] {
+  --color-accent: #2563eb;
+}
+[data-accent="blue"].dark, .dark [data-accent="blue"] {
+  --color-accent: #3b82f6;
+}
+[data-accent="purple"] {
+  --color-accent: #7c3aed;
+}
+[data-accent="purple"].dark, .dark [data-accent="purple"] {
+  --color-accent: #8b5cf6;
+}
+[data-accent="emerald"] {
+  --color-accent: #059669;
+}
+[data-accent="emerald"].dark, .dark [data-accent="emerald"] {
+  --color-accent: #10b981;
+}
+[data-accent="amber"] {
+  --color-accent: #d97706;
+}
+[data-accent="amber"].dark, .dark [data-accent="amber"] {
+  --color-accent: #f59e0b;
+}
+[data-accent="rose"] {
+  --color-accent: #e11d48;
+}
+[data-accent="rose"].dark, .dark [data-accent="rose"] {
+  --color-accent: #fb7185;
+}
+
+/* ───── Suit color overrides ───── */
+[data-suit-colors="four-color"] {
+  --color-suit-spade: #0a0a0a;
+  --color-suit-heart: #dc2626;
+  --color-suit-diamond: #2563eb;
+  --color-suit-club: #16a34a;
+}
+.dark [data-suit-colors="four-color"], [data-suit-colors="four-color"].dark {
+  --color-suit-spade: #fafafa;
+  --color-suit-heart: #ef4444;
+  --color-suit-diamond: #60a5fa;
+  --color-suit-club: #4ade80;
+}
+[data-suit-colors="blue-red"] {
+  --color-suit-spade: #2563eb;
+  --color-suit-heart: #dc2626;
+  --color-suit-diamond: #dc2626;
+  --color-suit-club: #2563eb;
+}
+.dark [data-suit-colors="blue-red"], [data-suit-colors="blue-red"].dark {
+  --color-suit-spade: #60a5fa;
+  --color-suit-heart: #ef4444;
+  --color-suit-diamond: #ef4444;
+  --color-suit-club: #60a5fa;
+}
+[data-suit-colors="mono"] {
+  --color-suit-spade: var(--color-foreground);
+  --color-suit-heart: var(--color-foreground);
+  --color-suit-diamond: var(--color-foreground);
+  --color-suit-club: var(--color-foreground);
 }
 
 /* ───── Base ───── */
@@ -46,34 +118,34 @@ body {
 
 /* ───── Card responsive sizing ───── */
 .card-size {
-  width: 4rem;
-  height: 5.75rem;
+  width: 4.75rem;
+  height: 6.75rem;
 }
 .card-rank {
-  font-size: 1rem;
+  font-size: 1.1rem;
   line-height: 1;
 }
 .card-suit {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   line-height: 1;
 }
 .card-center-suit {
-  font-size: 1.3rem;
+  font-size: 1.5rem;
 }
 
 @media (min-width: 640px) {
   .card-size {
-    width: 5.5rem;
-    height: 8rem;
+    width: 6rem;
+    height: 8.75rem;
   }
   .card-rank {
-    font-size: 1.35rem;
+    font-size: 1.5rem;
   }
   .card-suit {
-    font-size: 0.95rem;
+    font-size: 1.05rem;
   }
   .card-center-suit {
-    font-size: 1.8rem;
+    font-size: 2rem;
   }
 }
 

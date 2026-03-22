@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import type { Card as CardType } from "@/engine/types";
-import { isRed } from "@/engine/types";
+import { suitColor } from "@/engine/types";
 import { useCustomizeStore } from "@/engine/customize/store";
 import { getCardBack } from "@/engine/customize/cardBacks";
 
@@ -13,8 +13,7 @@ interface CardProps {
 }
 
 export default function Card({ card, hidden = false, index = 0 }: CardProps) {
-  const red = isRed(card.suit);
-  const colorClass = red ? "text-card-red" : "text-foreground";
+  const sc = suitColor(card.suit);
   const { cardBack, showCardShadow, animationSpeed } = useCustomizeStore();
   const back = getCardBack(cardBack);
   const dur = animationSpeed === "fast" ? 0.2 : animationSpeed === "slow" ? 0.5 : 0.35;
@@ -50,28 +49,28 @@ export default function Card({ card, hidden = false, index = 0 }: CardProps) {
       className={`card-size rounded-lg border border-border bg-surface flex flex-col justify-between p-1.5 sm:p-2 select-none ${showCardShadow ? "shadow-sm" : ""}`}
     >
       {/* Top-left rank + suit */}
-      <div className="flex flex-col items-start leading-none">
-        <span className={`card-rank font-semibold ${colorClass}`}>
+      <div className="flex flex-col items-start leading-none" style={{ color: sc }}>
+        <span className="card-rank font-semibold">
           {card.rank}
         </span>
-        <span className={`card-suit ${colorClass} -mt-px`}>
+        <span className="card-suit -mt-px">
           {card.suit}
         </span>
       </div>
 
       {/* Center ghost suit */}
       <div className="flex items-center justify-center flex-1 pointer-events-none">
-        <span className={`card-center-suit ${colorClass} opacity-10`}>
+        <span className="card-center-suit opacity-10" style={{ color: sc }}>
           {card.suit}
         </span>
       </div>
 
       {/* Bottom-right (inverted) */}
-      <div className="flex flex-col items-end leading-none rotate-180">
-        <span className={`card-rank font-semibold ${colorClass}`}>
+      <div className="flex flex-col items-end leading-none rotate-180" style={{ color: sc }}>
+        <span className="card-rank font-semibold">
           {card.rank}
         </span>
-        <span className={`card-suit ${colorClass} -mt-px`}>
+        <span className="card-suit -mt-px">
           {card.suit}
         </span>
       </div>

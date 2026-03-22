@@ -68,6 +68,7 @@ function initialState(): PokerState {
     currentRaise: BIG_BLIND * 2,
     bigBlind: BIG_BLIND,
     smallBlind: SMALL_BLIND,
+    lastAggressorIndex: -1,
   };
 }
 
@@ -78,7 +79,7 @@ function stateOnly(s: PokerState): Partial<PokerStore> {
     activePlayerIndex: s.activePlayerIndex, phase: s.phase, pot: s.pot,
     minRaise: s.minRaise, dealerIndex: s.dealerIndex, lastAction: s.lastAction,
     winnerIds: s.winnerIds, showAllCards: s.showAllCards, currentRaise: s.currentRaise,
-    bigBlind: s.bigBlind, smallBlind: s.smallBlind,
+    bigBlind: s.bigBlind, smallBlind: s.smallBlind, lastAggressorIndex: s.lastAggressorIndex,
   };
 }
 
@@ -107,7 +108,7 @@ function nextActiveIndex(players: PokerPlayer[], from: number, dealerIdx: number
     const p = players[idx];
     if (!p.folded && !p.isAllIn) return idx;
   }
-  return -1; // nobody can act
+  return -1;
 }
 
 function activePlayers(players: PokerPlayer[]): PokerPlayer[] {
@@ -151,8 +152,10 @@ function postBlinds(state: PokerState): PokerState {
     ...state,
     players,
     pot: sbAmount + bbAmount,
-    minRaise: BIG_BLIND,
+    minRaise: state.bigBlind,
     activePlayerIndex: firstActor,
+    // BB is the last aggressor preflop (they put in the big blind)
+    lastAggressorIndex: bbIdx,
   };
 }
 
@@ -186,34 +189,89 @@ function getNextPhase(phase: PokerPhase): PokerPhase {
   return idx >= 0 && idx < order.length - 1 ? order[idx + 1] : "showdown";
 }
 
-function advancePhase(state: PokerState): PokerState {
+/** Async advance — deals community cards with delay so player can see & act */
+function advancePhaseAsync(
+  set: (partial: Partial<PokerStore>) => void,
+  get: () => PokerStore,
+): void {
+  const state = get();
   const nextPhase = getNextPhase(state.phase);
   const players = state.players.map((p) => ({ ...p, currentBet: 0 }));
 
-  let newState: PokerState = {
-    ...state, players, phase: nextPhase, minRaise: state.bigBlind,
-    // Postflop: first active player after dealer
-    activePlayerIndex: nextActiveIndex(players, state.dealerIndex, state.dealerIndex),
+  if (nextPhase === "showdown") {
+    const newState: PokerState = {
+      ...state, players, phase: nextPhase, minRaise: state.bigBlind,
+      activePlayerIndex: nextActiveIndex(players, state.dealerIndex, state.dealerIndex),
+    };
+    set(stateOnly(resolveShowdown(newState)));
+    return;
+  }
+
+  // Set phase to "dealing" momentarily to prevent actions during card animation
+  set({ phase: "dealing" as PokerPhase, lastAction: null });
+
+  const CARD_DELAY = 400;
+
+  const finishPhaseTransition = (deck: Card[], finalCommunity: Card[]) => {
+    const updatedPlayers = get().players.map((p) => ({ ...p, currentBet: 0 }));
+    const firstToAct = nextActiveIndex(updatedPlayers, state.dealerIndex, state.dealerIndex);
+
+    if (actingPlayers(updatedPlayers).length <= 1) {
+      set(stateOnly(runOutBoard({
+        ...state, deck, community: finalCommunity, players: updatedPlayers,
+        phase: nextPhase, minRaise: state.bigBlind, activePlayerIndex: firstToAct,
+        lastAggressorIndex: firstToAct,
+      })));
+      return;
+    }
+
+    // Reset lastAggressorIndex to firstToAct — round ends when action comes back here
+    set({
+      deck, community: finalCommunity, players: updatedPlayers,
+      phase: nextPhase, minRaise: state.bigBlind, activePlayerIndex: firstToAct,
+      lastAggressorIndex: firstToAct,
+    });
+
+    if (firstToAct !== -1) {
+      const nextP = updatedPlayers[firstToAct];
+      if (nextP && !nextP.isHuman && !nextP.folded) {
+        scheduleAIAction(set, get);
+      }
+    }
   };
 
   if (nextPhase === "flop") {
-    newState = dealCommunity(newState, 3);
+    let deck = [...state.deck];
+    const community = [...state.community];
+    const flopCards: Card[] = [];
+    for (let i = 0; i < 3; i++) {
+      const { card, deck: remaining } = draw(deck);
+      flopCards.push(card);
+      deck = remaining;
+    }
+
+    setTimeout(() => {
+      set({ community: [...community, flopCards[0]] });
+    }, CARD_DELAY);
+
+    setTimeout(() => {
+      set({ community: [...community, flopCards[0], flopCards[1]] });
+    }, CARD_DELAY * 2);
+
+    setTimeout(() => {
+      finishPhaseTransition(deck, [...community, ...flopCards]);
+    }, CARD_DELAY * 3);
+
   } else if (nextPhase === "turn" || nextPhase === "river") {
-    newState = dealCommunity(newState, 1);
-  } else if (nextPhase === "showdown") {
-    return resolveShowdown(newState);
-  }
+    let deck = [...state.deck];
+    const community = [...state.community];
+    const { card, deck: remaining } = draw(deck);
+    deck = remaining;
 
-  // If only one can act or none, run out
-  if (actingPlayers(players).length <= 1) {
-    return runOutBoard(newState);
+    setTimeout(() => {
+      finishPhaseTransition(deck, [...community, card]);
+    }, CARD_DELAY);
   }
-
-  if (newState.activePlayerIndex === -1) {
-    return advancePhase(newState);
-  }
-
-  return newState;
 }
 
 function runOutBoard(state: PokerState): PokerState {
@@ -230,7 +288,6 @@ function resolveShowdown(state: PokerState): PokerState {
   const players = state.players.map((p) => ({ ...p }));
   const active = players.filter((p) => !p.folded);
 
-  // If only one player left (rest folded)
   if (active.length === 1) {
     active[0].chips += state.pot;
     return {
@@ -239,19 +296,16 @@ function resolveShowdown(state: PokerState): PokerState {
     };
   }
 
-  // Evaluate hands
   for (const player of active) {
     player.result = evaluateHand(player.cards, state.community);
   }
 
-  // Find best hand
   let bestScore = -1;
   for (const p of active) {
     if (p.result && p.result.score > bestScore) bestScore = p.result.score;
   }
   const winners = active.filter((p) => p.result && p.result.score === bestScore);
 
-  // Split pot among winners
   const share = Math.floor(state.pot / winners.length);
   const remainder = state.pot - share * winners.length;
   winners.forEach((w, i) => {
@@ -272,11 +326,11 @@ function processAction(
 
   let pot = state.pot;
   let minRaise = state.minRaise;
+  let lastAggressorIndex = state.lastAggressorIndex;
   const maxBet = Math.max(...players.map((p) => p.currentBet));
 
   if (action === "fold") {
     player.folded = true;
-    // Check if only one player remains
     const remaining = players.filter((p) => !p.folded);
     if (remaining.length === 1) {
       remaining[0].chips += pot;
@@ -284,6 +338,7 @@ function processAction(
         ...state, players, pot: 0, phase: "settled",
         winnerIds: [remaining[0].id], showAllCards: true,
         lastAction: { player: player.name, action },
+        lastAggressorIndex,
       };
     }
   }
@@ -306,6 +361,7 @@ function processAction(
     pot += toAdd;
     minRaise = Math.max(minRaise, player.currentBet - maxBet);
     if (player.chips === 0) player.isAllIn = true;
+    lastAggressorIndex = playerIdx;
   }
 
   if (action === "all-in") {
@@ -315,45 +371,34 @@ function processAction(
     pot += amount;
     player.chips = 0;
     player.isAllIn = true;
+    if (player.currentBet > maxBet) {
+      lastAggressorIndex = playerIdx;
+    }
     minRaise = Math.max(minRaise, player.currentBet - maxBet);
   }
 
   let newState: PokerState = {
-    ...state, players, pot, minRaise,
+    ...state, players, pot, minRaise, lastAggressorIndex,
     lastAction: { player: player.name, action, amount: raiseAmount },
   };
 
-  // After raise/all-in, everyone else needs to act
-  if (action === "raise" || action === "all-in") {
-    const next = nextActiveIndex(players, playerIdx, state.dealerIndex);
-    if (next === -1 || actingPlayers(players).length === 0) {
-      return advancePhase(newState);
-    }
-    newState.activePlayerIndex = next;
+  // Find the next active player
+  const next = nextActiveIndex(players, playerIdx, state.dealerIndex);
+
+  if (next === -1 || actingPlayers(players).length === 0) {
+    newState.phase = ("advance-" + newState.phase) as PokerPhase;
     return newState;
   }
 
-  // After check/call/fold: find next player who hasn't matched the bet
-  const newMaxBet = Math.max(...players.map((p) => p.currentBet));
-  const next = nextActiveIndex(players, playerIdx, state.dealerIndex);
-
-  if (next === -1) {
-    return advancePhase(newState);
-  }
-
-  // Check if betting round is complete
-  const allMatched = actingPlayers(players).every(
-    (p) => p.currentBet === newMaxBet
-  );
-
-  // We need to check if the next player has already acted at this bet level
-  // Betting round ends when we come back to the player who last raised (or all matched)
-  if (allMatched && action !== "fold") {
-    // But the next player might not have acted yet this round
-    // Simple check: if next player's bet equals max bet, round is done
-    const nextPlayer = players[next];
-    if (nextPlayer.currentBet === newMaxBet) {
-      return advancePhase(newState);
+  // Check if the betting round is complete:
+  // Round ends when action returns to the last aggressor (or first-to-act if no raise)
+  if (next === lastAggressorIndex) {
+    // All players have had a chance to act since last raise
+    const newMaxBet = Math.max(...players.map((p) => p.currentBet));
+    const allMatched = actingPlayers(players).every((p) => p.currentBet === newMaxBet);
+    if (allMatched) {
+      newState.phase = ("advance-" + newState.phase) as PokerPhase;
+      return newState;
     }
   }
 
@@ -369,15 +414,14 @@ function scheduleAIAction(
 ): void {
   setTimeout(() => {
     const state = get();
-    if (state.phase === "settled" || state.phase === "betting" || state.phase === "showdown") return;
+    if (state.phase === "settled" || state.phase === "betting" || state.phase === "showdown" || state.phase === "dealing") return;
 
     const activePlayer = state.players[state.activePlayerIndex];
     if (!activePlayer || activePlayer.isHuman || activePlayer.folded) return;
     if (activePlayer.isAllIn) {
-      // Skip to next
       const next = nextActiveIndex(state.players, state.activePlayerIndex, state.dealerIndex);
       if (next === -1 || actingPlayers(state.players).length === 0) {
-        set(stateOnly(advancePhase(state)));
+        advancePhaseAsync(set, get);
       } else {
         set({ activePlayerIndex: next });
         const updated = get();
@@ -420,17 +464,44 @@ function scheduleAIAction(
       }
     }
 
+    const needsAdvance = (newState.phase as string).startsWith("advance-");
+    if (needsAdvance) {
+      const realPhase = (newState.phase as string).replace("advance-", "") as PokerPhase;
+      newState.phase = realPhase;
+      set(stateOnly(newState));
+      advancePhaseAsync(set, get);
+      return;
+    }
+
     set(stateOnly(newState));
 
-    // Continue AI chain if next player is also AI
     const updated = get();
-    if (updated.phase !== "settled" && updated.phase !== "betting" && updated.phase !== "showdown") {
+    if (updated.phase !== "settled" && updated.phase !== "betting" && updated.phase !== "showdown" && updated.phase !== "dealing") {
       const nextP = updated.players[updated.activePlayerIndex];
       if (nextP && !nextP.isHuman && !nextP.folded) {
         scheduleAIAction(set, get);
       }
     }
-  }, 400 + Math.random() * 300);
+  }, 600 + Math.random() * 400);
+}
+
+// ─── Action helper ───────────────────────────────────────
+
+function handleAction(
+  set: (partial: Partial<PokerStore>) => void,
+  get: () => PokerStore,
+  newState: PokerState,
+) {
+  const needsAdvance = (newState.phase as string).startsWith("advance-");
+  if (needsAdvance) {
+    const realPhase = (newState.phase as string).replace("advance-", "") as PokerPhase;
+    newState.phase = realPhase;
+    set(stateOnly(newState));
+    advancePhaseAsync(set, get);
+    return;
+  }
+  set(stateOnly(newState));
+  triggerAIIfNeeded(set, get);
 }
 
 // ─── Store ──────────────────────────────────────────────
@@ -442,7 +513,6 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
     const state = get();
     if (state.phase !== "betting") return;
 
-    // Preserve chips, reset everything else
     let newState: PokerState = {
       ...initialState(),
       deck: createDeck(1),
@@ -455,29 +525,33 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
         isHuman: p.isHuman,
       })),
       dealerIndex: state.dealerIndex,
+      bigBlind: state.bigBlind,
+      smallBlind: state.smallBlind,
       phase: "dealing",
     };
 
     newState = postBlinds(newState);
     newState = dealHoleCards(newState);
-    newState.phase = "preflop";
+    newState.phase = "dealing";
 
     set(stateOnly(newState));
 
-    // If first actor is AI, start the chain
-    const firstActor = newState.players[newState.activePlayerIndex];
-    if (firstActor && !firstActor.isHuman) {
-      scheduleAIAction(set, get);
-    }
+    setTimeout(() => {
+      newState.phase = "preflop";
+      set({ phase: "preflop" });
+
+      const firstActor = newState.players[newState.activePlayerIndex];
+      if (firstActor && !firstActor.isHuman) {
+        scheduleAIAction(set, get);
+      }
+    }, 800);
   },
 
   fold: () => {
     const state = get();
     const playerIdx = state.players.findIndex((p) => p.isHuman);
     if (state.activePlayerIndex !== playerIdx) return;
-    const newState = processAction(state, playerIdx, "fold");
-    set(stateOnly(newState));
-    triggerAIIfNeeded(set, get);
+    handleAction(set, get, processAction(state, playerIdx, "fold"));
   },
 
   check: () => {
@@ -486,18 +560,14 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
     if (state.activePlayerIndex !== playerIdx) return;
     const maxBet = Math.max(...state.players.map((p) => p.currentBet));
     if (maxBet > state.players[playerIdx].currentBet) return;
-    const newState = processAction(state, playerIdx, "check");
-    set(stateOnly(newState));
-    triggerAIIfNeeded(set, get);
+    handleAction(set, get, processAction(state, playerIdx, "check"));
   },
 
   call: () => {
     const state = get();
     const playerIdx = state.players.findIndex((p) => p.isHuman);
     if (state.activePlayerIndex !== playerIdx) return;
-    const newState = processAction(state, playerIdx, "call");
-    set(stateOnly(newState));
-    triggerAIIfNeeded(set, get);
+    handleAction(set, get, processAction(state, playerIdx, "call"));
   },
 
   raise: (amount: number) => {
@@ -506,22 +576,17 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
     if (state.activePlayerIndex !== playerIdx) return;
     const player = state.players[playerIdx];
     if (amount >= player.chips + player.currentBet) {
-      const newState = processAction(state, playerIdx, "all-in");
-      set(stateOnly(newState));
+      handleAction(set, get, processAction(state, playerIdx, "all-in"));
     } else {
-      const newState = processAction(state, playerIdx, "raise", amount);
-      set(stateOnly(newState));
+      handleAction(set, get, processAction(state, playerIdx, "raise", amount));
     }
-    triggerAIIfNeeded(set, get);
   },
 
   allIn: () => {
     const state = get();
     const playerIdx = state.players.findIndex((p) => p.isHuman);
     if (state.activePlayerIndex !== playerIdx) return;
-    const newState = processAction(state, playerIdx, "all-in");
-    set(stateOnly(newState));
-    triggerAIIfNeeded(set, get);
+    handleAction(set, get, processAction(state, playerIdx, "all-in"));
   },
 
   skipHand: () => {
@@ -537,9 +602,9 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
       lastAction: state.lastAction, winnerIds: state.winnerIds,
       showAllCards: state.showAllCards, currentRaise: state.currentRaise,
       bigBlind: state.bigBlind, smallBlind: state.smallBlind,
+      lastAggressorIndex: state.lastAggressorIndex,
     };
-    const settled = runOutBoard(pokerState);
-    set(stateOnly(settled));
+    set(stateOnly(runOutBoard(pokerState)));
   },
 
   newRound: () => {
@@ -586,7 +651,8 @@ function triggerAIIfNeeded(
   if (
     updated.phase !== "settled" &&
     updated.phase !== "betting" &&
-    updated.phase !== "showdown"
+    updated.phase !== "showdown" &&
+    updated.phase !== "dealing"
   ) {
     const nextP = updated.players[updated.activePlayerIndex];
     if (nextP && !nextP.isHuman && !nextP.folded) {

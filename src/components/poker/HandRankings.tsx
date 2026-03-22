@@ -16,12 +16,10 @@ const RANKINGS = [
   { name: "High Card", desc: "Highest-ranking card", cards: "A 7 3 9 2", suits: "♣♠♥♠♣" },
 ];
 
-function isRed(suit: string): boolean {
-  return suit === "♥" || suit === "♦";
-}
+import { suitColor } from "@/engine/types";
 
-export default function HandRankings() {
-  const [open, setOpen] = useState(false);
+export default function HandRankings({ defaultOpen = false }: { defaultOpen?: boolean } = {}) {
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
     <>
@@ -39,7 +37,7 @@ export default function HandRankings() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-            onClick={() => setOpen(false)}
+            onPointerDown={() => setOpen(false)}
           >
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/60" />
@@ -50,9 +48,18 @@ export default function HandRankings() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
               className="relative w-full max-w-md max-h-[85vh] bg-background border-t border-border rounded-t-2xl sm:rounded-2xl sm:border overflow-y-auto safe-bottom"
             >
+              {/* Close button */}
+              <button
+                onClick={() => setOpen(false)}
+                className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full border border-border text-muted hover:text-foreground hover:border-foreground transition-colors z-10"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+
               {/* Handle */}
               <div className="flex justify-center py-3">
                 <div className="w-10 h-1 rounded-full bg-border" />
@@ -79,11 +86,12 @@ export default function HandRankings() {
                           <div
                             key={i}
                             className="w-7 h-9 sm:w-8 sm:h-10 rounded bg-surface border border-border/50 flex flex-col items-center justify-center text-[8px] sm:text-[9px] leading-tight"
+                            style={{ color: suitColor(suits[i]) }}
                           >
-                            <span className={`font-semibold ${isRed(suits[i]) ? "text-card-red" : "text-foreground"}`}>
+                            <span className="font-semibold">
                               {card}
                             </span>
-                            <span className={isRed(suits[i]) ? "text-card-red" : "text-foreground"}>
+                            <span>
                               {suits[i]}
                             </span>
                           </div>

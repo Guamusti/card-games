@@ -2,6 +2,8 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import type { PokerPlayer } from "@/engine/poker/types";
+import type { Card as CardType } from "@/engine/types";
+import { suitColor } from "@/engine/types";
 
 interface PlayerSeatProps {
   player: PokerPlayer;
@@ -9,6 +11,16 @@ interface PlayerSeatProps {
   isActive: boolean;
   showCards: boolean;
   isWinner: boolean;
+}
+
+function MiniCard({ card }: { card: CardType }) {
+  const sc = suitColor(card.suit);
+  return (
+    <div className="w-8 h-11 sm:w-10 sm:h-14 rounded border border-border bg-surface flex flex-col items-center justify-center gap-0 select-none" style={{ color: sc }}>
+      <span className="text-[10px] sm:text-xs font-semibold leading-none">{card.rank}</span>
+      <span className="text-[9px] sm:text-[10px] leading-none">{card.suit}</span>
+    </div>
+  );
 }
 
 export default function PlayerSeat({
@@ -59,13 +71,28 @@ export default function PlayerSeat({
         <span className="text-[9px] font-bold text-correct uppercase">All-in</span>
       )}
 
-      {/* Hand result (showdown) */}
+      {/* Cards at showdown */}
+      <AnimatePresence>
+        {showCards && player.cards.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex gap-0.5 mt-0.5"
+          >
+            {player.cards.map((card, i) => (
+              <MiniCard key={`${card.rank}${card.suit}-${i}`} card={card} />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hand result name */}
       <AnimatePresence>
         {player.result && showCards && (
           <motion.span
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-[9px] text-muted text-center max-w-[4rem] leading-tight"
+            className="text-[9px] text-muted text-center max-w-[5rem] leading-tight"
           >
             {player.result.name}
           </motion.span>

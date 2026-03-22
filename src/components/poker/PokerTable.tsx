@@ -20,7 +20,7 @@ export default function PokerTable() {
   const {
     players, community, phase, pot, dealerIndex,
     activePlayerIndex, showAllCards, lastAction, winnerIds,
-    bigBlind, smallBlind,
+    bigBlind, smallBlind, setBlinds,
   } = usePokerStore();
   const { dark, toggle } = useDarkMode();
   const tableFelt = useCustomizeStore((s) => s.tableFelt);
@@ -42,9 +42,12 @@ export default function PokerTable() {
       <div className="flex items-center justify-between px-4 sm:px-6 py-2.5 sm:py-3 border-b border-border safe-top">
         <Link
           href="/"
-          className="text-muted hover:text-foreground transition-colors"
+          className="flex items-center gap-1.5 text-muted hover:text-foreground transition-colors group"
         >
-          ←
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:scale-110 transition-transform">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
         </Link>
         <div className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm tabular-nums">
           {showTable && (
@@ -74,11 +77,32 @@ export default function PokerTable() {
             <p className="text-xs sm:text-sm text-muted max-w-xs text-center leading-relaxed">
               Play against 5 AI opponents. Win probability shown in real time.
             </p>
-            <div className="text-xs text-muted text-center tabular-nums">
-              <span>Starting chips: {players[0]?.chips || 200}</span>
-              <span className="mx-2">·</span>
-              <span>Blinds: {smallBlind}/{bigBlind}</span>
+
+            {/* Table selector */}
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-[10px] sm:text-xs text-muted uppercase tracking-widest">Choose Table</span>
+              <div className="flex gap-2">
+                {([
+                  { sb: 1, bb: 2, chips: 200, label: "200" },
+                  { sb: 5, bb: 10, chips: 1000, label: "1K" },
+                  { sb: 10, bb: 20, chips: 2000, label: "2K" },
+                ] as const).map((table) => (
+                  <button
+                    key={table.chips}
+                    onClick={() => setBlinds(table.sb, table.bb)}
+                    className={`flex flex-col items-center gap-0.5 px-4 py-2.5 rounded-lg border transition-all duration-150 ${
+                      bigBlind === table.bb
+                        ? "border-foreground text-foreground bg-foreground/5"
+                        : "border-border text-muted hover:border-foreground/50"
+                    }`}
+                  >
+                    <span className="text-sm sm:text-base font-semibold tabular-nums">{table.label}</span>
+                    <span className="text-[9px] sm:text-[10px] tabular-nums">{table.sb}/{table.bb}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+
             <PokerActionBar />
             <HandRankings />
           </div>
@@ -103,7 +127,7 @@ export default function PokerTable() {
               <CommunityCards cards={community} phase={phase} />
               <div className="flex items-center gap-3">
                 <span className="text-[10px] sm:text-xs text-muted font-medium uppercase tracking-widest">
-                  {phase === "preflop" ? "Pre-flop"
+                  {phase === "preflop" || phase === "dealing" ? "Pre-flop"
                     : phase === "flop" ? "Flop"
                     : phase === "turn" ? "Turn"
                     : phase === "river" ? "River"
@@ -119,9 +143,9 @@ export default function PokerTable() {
             <AnimatePresence>
               {lastAction && phase !== "settled" && (
                 <motion.div
-                  key={`${lastAction.player}-${lastAction.action}-${Date.now()}`}
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  key={`${lastAction.player}-${lastAction.action}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   className="text-[10px] sm:text-xs text-muted"
                 >
@@ -166,7 +190,7 @@ export default function PokerTable() {
                     <PokerCard
                       key={`${card.rank}${card.suit}-${i}`}
                       card={card}
-                      delay={i * 0.1}
+                      delay={i * 0.15}
                     />
                   ))}
                   {player.cards.length === 0 && (

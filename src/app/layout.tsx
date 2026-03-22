@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "@/styles/globals.css";
 import { PwaRegister } from "@/components/PwaRegister";
+import AccentProvider from "@/components/AccentProvider";
 
 export const metadata: Metadata = {
   title: "Card Trainer",
@@ -37,6 +38,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body>
+        <AccentProvider />
         {children}
         <PwaRegister />
       </body>

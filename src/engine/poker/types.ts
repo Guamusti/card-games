@@ -76,4 +76,6 @@ export interface PokerState {
   currentRaise: number;
   bigBlind: number;
   smallBlind: number;
+  /** Index of the last player who raised/bet, or the first to act in a new round */
+  lastAggressorIndex: number;
 }

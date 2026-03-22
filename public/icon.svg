@@ -1,4 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
-  <text x="256" y="280" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="220" font-weight="600" fill="#fafafa">BJ</text>
+  <!-- Back card (offset) -->
+  <rect x="130" y="100" width="160" height="220" rx="16" fill="#1a1a2e" stroke="#333" stroke-width="3"/>
+  <path d="M170 170L210 140L250 170L210 200Z" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+  <path d="M170 220L210 190L250 220L210 250Z" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+  <!-- Front card -->
+  <rect x="220" y="180" width="170" height="240" rx="16" fill="#fafafa" stroke="#e5e5e5" stroke-width="2"/>
+  <!-- Top-left rank + suit -->
+  <text x="242" y="222" font-family="Inter, system-ui, sans-serif" font-size="36" font-weight="600" fill="#0a0a0a">A</text>
+  <text x="242" y="250" font-family="Inter, system-ui, sans-serif" font-size="24" fill="#b91c1c">♠</text>
+  <!-- Center suit -->
+  <text x="305" y="320" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="60" fill="rgba(10,10,10,0.08)">♠</text>
+  <!-- Bottom-right rank (rotated) -->
+  <g transform="translate(610, 600) rotate(180)">
+    <text x="242" y="222" font-family="Inter, system-ui, sans-serif" font-size="36" font-weight="600" fill="#0a0a0a">A</text>
+    <text x="242" y="250" font-family="Inter, system-ui, sans-serif" font-size="24" fill="#b91c1c">♠</text>
+  </g>
 </svg>

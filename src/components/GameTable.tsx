@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useGameStore } from "@/engine/store";
 import { useKeyboard } from "@/hooks/useKeyboard";
 import TopBar from "./ui/TopBar";
@@ -40,12 +39,6 @@ export default function GameTable() {
       <main className="flex-1 flex flex-col items-center justify-center gap-5 sm:gap-8 px-4 py-4 sm:py-8">
         {!showTable ? (
           <div className="flex flex-col items-center gap-5 sm:gap-6">
-            <Link
-              href="/"
-              className="text-xs text-muted hover:text-foreground transition-colors uppercase tracking-widest"
-            >
-              ← Menu
-            </Link>
             <h1 className="text-2xl sm:text-3xl font-light tracking-tight">Blackjack</h1>
             <p className="text-xs sm:text-sm text-muted max-w-xs text-center leading-relaxed">
               Train your basic strategy. Every decision is tracked and corrected

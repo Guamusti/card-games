@@ -4,6 +4,7 @@ import { useRef, useState, useCallback } from "react";
 import { useGameStore } from "@/engine/store";
 import { canSplit, type Action } from "@/engine/types";
 import { getOptimalAction } from "@/engine/strategy";
+import { useHaptic } from "@/hooks/useHaptic";
 
 export default function ActionBar() {
   const { phase, hands, activeHandIndex, dealer, hit, stand, double, split, deal, newRound } =
@@ -97,13 +98,16 @@ function ActionButton({
     }
   }, [peeking]);
 
+  const haptic = useHaptic();
+
   const handleClick = useCallback(() => {
     if (didPeekRef.current) {
       didPeekRef.current = false;
       return; // Don't execute action after a long-press peek
     }
+    haptic.tap();
     onClick();
-  }, [onClick]);
+  }, [onClick, haptic]);
 
   // Peek indicator styles
   const peekBorder = peeking

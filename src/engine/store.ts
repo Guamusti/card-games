@@ -64,24 +64,6 @@ function checkAndAdvance(state: GameState): GameState {
   return state;
 }
 
-function playDealer(state: GameState): GameState {
-  let { deck, dealer } = state;
-  dealer = { ...dealer, hidden: false };
-  let dealerCards = [...dealer.cards];
-
-  while (handValue(dealerCards) < 17) {
-    const { card, deck: remaining } = draw(deck);
-    dealerCards.push(card);
-    deck = remaining;
-  }
-
-  return {
-    ...state,
-    deck,
-    dealer: { cards: dealerCards, hidden: false },
-  };
-}
-
 function settleHands(state: GameState): GameState {
   const dealerVal = handValue(state.dealer.cards);
   const dealerBust = dealerVal > 21;
@@ -100,13 +82,11 @@ function settleHands(state: GameState): GameState {
       result = "lose";
     } else if (playerBJ && !dealerBJ) {
       result = "blackjack";
-      // BJ pays 3:2 — bet was already deducted, so return bet + bet*1.5
       balance += hand.bet + hand.bet * 1.5;
     } else if (dealerBJ && !playerBJ) {
       result = "lose";
     } else if (dealerBust) {
       result = "win";
-      // Win pays 1:1 — return bet + winnings
       balance += hand.bet * 2;
     } else if (playerVal > dealerVal) {
       result = "win";
@@ -115,7 +95,6 @@ function settleHands(state: GameState): GameState {
       result = "lose";
     } else {
       result = "push";
-      // Push — return the original bet
       balance += hand.bet;
     }
 
@@ -140,6 +119,54 @@ function getFeedback(
   };
 }
 
+/** Animate dealer drawing cards one by one */
+function playDealerAnimated(
+  set: (partial: Partial<GameStore>) => void,
+  get: () => GameStore,
+): void {
+  const CARD_DELAY = 600;
+
+  const step = () => {
+    const state = get();
+    const dealerCards = [...state.dealer.cards];
+    const val = handValue(dealerCards);
+
+    if (val >= 17) {
+      // Done drawing, settle
+      const settled = settleHands({ ...state, dealer: { cards: dealerCards, hidden: false } });
+      set(settled);
+      return;
+    }
+
+    // Draw one card
+    const { card, deck } = draw(state.deck);
+    const newCards = [...dealerCards, card];
+    set({
+      deck,
+      dealer: { cards: newCards, hidden: false },
+    });
+
+    // Check if dealer needs more
+    if (handValue(newCards) < 17) {
+      setTimeout(step, CARD_DELAY);
+    } else {
+      // Final settle after a brief pause
+      setTimeout(() => {
+        const finalState = get();
+        const settled = settleHands(finalState);
+        set(settled);
+      }, CARD_DELAY);
+    }
+  };
+
+  // First, reveal hidden card
+  const state = get();
+  set({ dealer: { cards: state.dealer.cards, hidden: false }, phase: "dealer-turn" });
+
+  // After revealing, start drawing
+  setTimeout(step, CARD_DELAY);
+}
+
 export const useGameStore = create<GameStore>((set, get) => ({
   ...initialState(),
 
@@ -156,7 +183,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const p2 = draw(deck); deck = p2.deck;
 
     const newBalance = state.balance - state.currentBet;
-    const DELAY = 300; // ms between each card
+    const DELAY = 350;
 
     // Step 1: empty table, dealing phase
     set({
@@ -208,8 +235,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       // Check for player blackjack
       if (isBlackjack(hand.cards)) {
-        newState = playDealer(newState);
-        newState = settleHands(newState);
+        // Use animated dealer play
+        set({ ...newState });
+        playDealerAnimated(set, get);
+        return;
       }
 
       set(newState);
@@ -238,8 +267,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     newState = checkAndAdvance(newState);
 
     if (newState.phase === "dealer-turn") {
-      newState = playDealer(newState);
-      newState = settleHands(newState);
+      set({ ...newState, phase: "dealer-turn" });
+      playDealerAnimated(set, get);
+      return;
     }
 
     set(newState);
@@ -265,21 +295,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const nextIdx = state.activeHandIndex + 1;
 
-    let newState: GameState;
     if (nextIdx < hands.length) {
-      newState = {
+      set({
         ...state,
         hands,
         activeHandIndex: nextIdx,
         lastFeedback: feedback,
-      };
+      });
     } else {
-      newState = { ...state, hands, phase: "dealer-turn", lastFeedback: feedback };
-      newState = playDealer(newState);
-      newState = settleHands(newState);
+      set({ ...state, hands, lastFeedback: feedback, phase: "dealer-turn" });
+      playDealerAnimated(set, get);
     }
-
-    set(newState);
   },
 
   double: () => {
@@ -306,7 +332,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isStanding: true,
     };
 
-    const newBalance = state.balance - hand.bet; // deduct the extra bet
+    const newBalance = state.balance - hand.bet;
 
     let newState: GameState = {
       ...state,
@@ -319,13 +345,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const nextIdx = state.activeHandIndex + 1;
     if (nextIdx < hands.length) {
       newState.activeHandIndex = nextIdx;
+      set(newState);
     } else {
-      newState.phase = "dealer-turn";
-      newState = playDealer(newState);
-      newState = settleHands(newState);
+      set({ ...newState, phase: "dealer-turn" });
+      playDealerAnimated(set, get);
     }
-
-    set(newState);
   },
 
   split: () => {
@@ -344,7 +368,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     let deck = state.deck;
 
-    // Draw one card for each new hand
     const draw1 = draw(deck);
     deck = draw1.deck;
     const draw2 = draw(deck);
@@ -367,7 +390,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const hands = [...state.hands];
     hands.splice(state.activeHandIndex, 1, hand1, hand2);
 
-    const newBalance = state.balance - hand.bet; // deduct the extra bet
+    const newBalance = state.balance - hand.bet;
 
     let newState: GameState = {
       ...state,
@@ -380,8 +403,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     newState = checkAndAdvance(newState);
 
     if (newState.phase === "dealer-turn") {
-      newState = playDealer(newState);
-      newState = settleHands(newState);
+      set({ ...newState, phase: "dealer-turn" });
+      playDealerAnimated(set, get);
+      return;
     }
 
     set(newState);

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import type { Card as CardType } from "@/engine/types";
 import PokerCard from "./PokerCard";
 
@@ -10,9 +10,9 @@ interface CommunityCardsProps {
 }
 
 export default function CommunityCards({ cards, phase }: CommunityCardsProps) {
-  if (cards.length === 0 && phase === "preflop") {
+  if (cards.length === 0 && (phase === "preflop" || phase === "dealing")) {
     return (
-      <div className="flex gap-1.5 sm:gap-2 h-[5.75rem] sm:h-[8rem] items-center">
+      <div className="flex gap-1.5 sm:gap-2 h-[6.5rem] sm:h-[9rem] items-center">
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
@@ -27,7 +27,7 @@ export default function CommunityCards({ cards, phase }: CommunityCardsProps) {
     <div className="flex gap-1.5 sm:gap-2">
       <AnimatePresence>
         {cards.map((card, i) => (
-          <PokerCard key={`${card.rank}${card.suit}-${i}`} card={card} delay={i < 3 ? i * 0.1 : 0} />
+          <PokerCard key={`${card.rank}${card.suit}-${i}`} card={card} delay={0} />
         ))}
       </AnimatePresence>
       {/* Placeholder slots for remaining cards */}
