@@ -33,7 +33,7 @@ export default function TopBar() {
       </Link>
 
       <div className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm tabular-nums">
-        {accuracy !== null && (
+        {mounted && accuracy !== null && (
           <span className={`font-medium ${accuracy >= 90 ? "text-correct" : accuracy >= 70 ? "text-foreground" : "text-accent"}`} title={`${bjStats.correctDecisions}/${bjStats.totalDecisions} correct · ${bjStats.handsPlayed} hands · ${bjStats.wins}W ${bjStats.losses}L`}>
             {accuracy}%
           </span>

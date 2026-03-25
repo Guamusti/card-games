@@ -1,16 +1,29 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useGameStore } from "@/engine/store";
 import { useWalletStore } from "@/engine/wallet";
 
 const PRESETS = [25, 50, 100, 250, 500];
 
 export default function BetSelector() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const { currentBet, setBet } = useGameStore();
   const { balance, rebuy } = useWalletStore();
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  if (!mounted) {
+    return (
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl sm:text-3xl font-light tabular-nums w-28 text-center">—</span>
+        </div>
+      </div>
+    );
+  }
 
   if (balance <= 0) {
     return (
