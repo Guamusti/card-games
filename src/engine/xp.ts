@@ -29,6 +29,7 @@ interface XPActions {
 export type XPStore = XPState & XPActions;
 
 function loadXP(): XPState {
+  if (typeof window === "undefined") return { level: 1, currentXP: 0, totalXP: 0 };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {

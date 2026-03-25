@@ -23,7 +23,12 @@ interface WalletActions {
 
 export type WalletStore = WalletState & WalletActions;
 
+function isClient(): boolean {
+  return typeof window !== "undefined";
+}
+
 function loadWallet(): WalletState {
+  if (!isClient()) return { balance: INITIAL_BALANCE, gems: 0 };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {

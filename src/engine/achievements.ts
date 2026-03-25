@@ -66,6 +66,7 @@ interface AchievementActions {
 export type AchievementStore = AchievementState & AchievementActions;
 
 function load(): AchievementState {
+  if (typeof window === "undefined") return { unlockedIds: [] };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {

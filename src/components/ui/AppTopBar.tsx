@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useWalletStore } from "@/engine/wallet";
 import { useXPStore } from "@/engine/xp";
@@ -13,6 +14,9 @@ interface AppTopBarProps {
 }
 
 export default function AppTopBar({ leftContent, hideCurrency }: AppTopBarProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const balance = useWalletStore((s) => s.balance);
   const gems = useWalletStore((s) => s.gems);
   const level = useXPStore((s) => s.level);
@@ -38,12 +42,12 @@ export default function AppTopBar({ leftContent, hideCurrency }: AppTopBarProps)
             {/* Coins */}
             <div className="flex items-center gap-1">
               <span className="text-amber-500 text-xs">●</span>
-              <span className="text-foreground font-medium">{balance.toLocaleString()}</span>
+              <span className="text-foreground font-medium">{mounted ? balance.toLocaleString() : "—"}</span>
             </div>
             {/* Gems */}
             <div className="flex items-center gap-1">
               <span className="text-blue-500 text-xs">◆</span>
-              <span className="text-foreground font-medium">{gems}</span>
+              <span className="text-foreground font-medium">{mounted ? gems : "—"}</span>
             </div>
           </>
         )}
@@ -52,7 +56,7 @@ export default function AppTopBar({ leftContent, hideCurrency }: AppTopBarProps)
           href="/battlepass"
           className="flex items-center gap-1 px-2 py-1 rounded-full border border-border hover:border-foreground transition-colors"
         >
-          <span className="text-xs font-bold">{level}</span>
+          <span className="text-xs font-bold">{mounted ? level : "—"}</span>
         </Link>
         {/* Dark mode */}
         <button

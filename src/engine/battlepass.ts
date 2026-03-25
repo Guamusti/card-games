@@ -84,6 +84,7 @@ interface BattlePassActions {
 export type BattlePassStore = BattlePassState & BattlePassActions;
 
 function loadBP(): BattlePassState {
+  if (typeof window === "undefined") return { cubes: [], claimedLevels: [] };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {

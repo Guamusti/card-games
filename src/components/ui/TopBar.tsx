@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useGameStore } from "@/engine/store";
 import { useWalletStore } from "@/engine/wallet";
@@ -7,6 +8,9 @@ import { useStatsStore } from "@/engine/stats";
 import { useDarkMode } from "@/hooks/useDarkMode";
 
 export default function TopBar() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const walletBalance = useWalletStore((s) => s.balance);
   const currentBet = useGameStore((s) => s.currentBet);
   const bjStats = useStatsStore((s) => s.bj);
@@ -35,10 +39,10 @@ export default function TopBar() {
           </span>
         )}
         <span className="text-muted">
-          Bet <span className="text-foreground font-medium">${currentBet}</span>
+          Bet <span className="text-foreground font-medium">${mounted ? currentBet : "—"}</span>
         </span>
         <span className="text-muted">
-          <span className="text-foreground font-medium">${walletBalance.toLocaleString()}</span>
+          <span className="text-foreground font-medium">${mounted ? walletBalance.toLocaleString() : "—"}</span>
         </span>
         <button
           onClick={toggle}

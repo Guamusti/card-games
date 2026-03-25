@@ -13,6 +13,7 @@ const DEFAULT_BET = 100;
 const BJ_BET_KEY = "card-trainer-bj-bet";
 
 function loadBet(): number {
+  if (typeof window === "undefined") return DEFAULT_BET;
   try {
     const raw = localStorage.getItem(BJ_BET_KEY);
     if (raw) return Math.max(10, JSON.parse(raw));

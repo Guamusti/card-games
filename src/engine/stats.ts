@@ -102,6 +102,7 @@ interface StatsActions {
 export type StatsStore = AllStats & StatsActions;
 
 function loadStats(): AllStats {
+  if (typeof window === "undefined") return { bj: EMPTY_BJ, poker: EMPTY_POKER, slots: EMPTY_SLOTS };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {

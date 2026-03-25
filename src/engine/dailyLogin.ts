@@ -41,6 +41,7 @@ export function getRewardForDay(day: number): DailyReward {
 }
 
 function load(): DailyLoginState {
+  if (typeof window === "undefined") return { streak: 0, lastLoginDate: "", claimedToday: false };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
