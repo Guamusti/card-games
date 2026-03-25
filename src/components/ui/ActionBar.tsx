@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useMemo } from "react";
 import { useGameStore } from "@/engine/store";
 import { canSplit, type Action } from "@/engine/types";
 import { getOptimalAction } from "@/engine/strategy";
+import { getBJActionProbabilities, type BJActionProbs } from "@/engine/bjProbability";
 import { useHaptic } from "@/hooks/useHaptic";
 
 export default function ActionBar() {
@@ -50,12 +51,17 @@ export default function ActionBar() {
     ? getOptimalAction(hand.cards, dealerUpcard, canDbl, canSpl)
     : null;
 
+  const probs = useMemo(() => {
+    if (!dealerUpcard) return null;
+    return getBJActionProbabilities(hand.cards, dealerUpcard, canDbl, canSpl);
+  }, [hand.cards, dealerUpcard, canDbl, canSpl]);
+
   return (
     <div className="flex justify-center gap-2 sm:gap-3 w-full px-4">
-      <ActionButton label="Hit" action="hit" onClick={hit} optimal={optimal} />
-      <ActionButton label="Stand" action="stand" onClick={stand} optimal={optimal} />
-      <ActionButton label="Double" action="double" onClick={double} disabled={!canDbl} optimal={optimal} />
-      <ActionButton label="Split" action="split" onClick={split} disabled={!canSpl} optimal={optimal} />
+      <ActionButton label="Hit" action="hit" onClick={hit} optimal={optimal} probs={probs} />
+      <ActionButton label="Stand" action="stand" onClick={stand} optimal={optimal} probs={probs} />
+      <ActionButton label="Double" action="double" onClick={double} disabled={!canDbl} optimal={optimal} probs={probs} />
+      <ActionButton label="Split" action="split" onClick={split} disabled={!canSpl} optimal={optimal} probs={probs} />
     </div>
   );
 }
@@ -66,18 +72,25 @@ function ActionButton({
   onClick,
   disabled = false,
   optimal,
+  probs,
 }: {
   label: string;
   action: Action;
   onClick: () => void;
   disabled?: boolean;
   optimal: Action | null;
+  probs: BJActionProbs | null;
 }) {
   const [peeking, setPeeking] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didPeekRef = useRef(false);
 
   const isCorrect = optimal === action;
+  const actionProb = probs
+    ? action === "split"
+      ? probs.split
+      : probs[action]
+    : null;
 
   const startPeek = useCallback(() => {
     if (disabled) return;
@@ -141,13 +154,16 @@ function ActionButton({
       {/* Peek tooltip */}
       {peeking && (
         <div
-          className={`absolute -top-9 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded text-[10px] sm:text-xs font-semibold whitespace-nowrap z-10 ${
+          className={`absolute -top-12 left-1/2 -translate-x-1/2 px-2.5 py-1.5 rounded text-[10px] sm:text-xs font-semibold whitespace-nowrap z-10 flex flex-col items-center gap-0.5 ${
             isCorrect
               ? "bg-correct text-white"
               : "bg-amber-500 text-white"
           }`}
         >
-          {isCorrect ? "Good play" : `Optimal: ${optimal}`}
+          <span>{isCorrect ? "Good play" : `Optimal: ${optimal}`}</span>
+          {actionProb !== null && (
+            <span className="text-[9px] font-normal opacity-90">Win {actionProb}%</span>
+          )}
           <div
             className={`absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent ${
               isCorrect ? "border-t-correct" : "border-t-amber-500"

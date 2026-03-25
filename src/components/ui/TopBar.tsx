@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { useGameStore } from "@/engine/store";
+import { useWalletStore } from "@/engine/wallet";
+import { useStatsStore } from "@/engine/stats";
 import { useDarkMode } from "@/hooks/useDarkMode";
 
 export default function TopBar() {
-  const balance = useGameStore((s) => s.balance);
+  const walletBalance = useWalletStore((s) => s.balance);
   const currentBet = useGameStore((s) => s.currentBet);
+  const bjStats = useStatsStore((s) => s.bj);
   const { dark, toggle } = useDarkMode();
+
+  const accuracy = bjStats.totalDecisions > 0
+    ? Math.round((bjStats.correctDecisions / bjStats.totalDecisions) * 100)
+    : null;
 
   return (
     <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-border safe-top">
@@ -21,12 +28,17 @@ export default function TopBar() {
         </svg>
       </Link>
 
-      <div className="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm tabular-nums">
+      <div className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm tabular-nums">
+        {accuracy !== null && (
+          <span className={`font-medium ${accuracy >= 90 ? "text-correct" : accuracy >= 70 ? "text-foreground" : "text-accent"}`} title={`${bjStats.correctDecisions}/${bjStats.totalDecisions} correct · ${bjStats.handsPlayed} hands · ${bjStats.wins}W ${bjStats.losses}L`}>
+            {accuracy}%
+          </span>
+        )}
         <span className="text-muted">
           Bet <span className="text-foreground font-medium">${currentBet}</span>
         </span>
         <span className="text-muted">
-          <span className="text-foreground font-medium">${balance.toLocaleString()}</span>
+          <span className="text-foreground font-medium">${walletBalance.toLocaleString()}</span>
         </span>
         <button
           onClick={toggle}

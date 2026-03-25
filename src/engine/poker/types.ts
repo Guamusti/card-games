@@ -59,6 +59,7 @@ export interface PokerPlayer {
   isAllIn: boolean;
   result?: EvaluatedHand;
   isHuman: boolean;
+  lastAction?: PokerAction;
 }
 
 export interface PokerState {
@@ -78,4 +79,6 @@ export interface PokerState {
   smallBlind: number;
   /** Index of the last player who raised/bet, or the first to act in a new round */
   lastAggressorIndex: number;
+  /** True once first hand is dealt — skip buy-in on subsequent hands */
+  atTable: boolean;
 }

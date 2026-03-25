@@ -13,12 +13,15 @@ interface PlayerSeatProps {
   isWinner: boolean;
 }
 
-function MiniCard({ card }: { card: CardType }) {
+function MiniCard({ card, dimmed }: { card: CardType; dimmed?: boolean }) {
   const sc = suitColor(card.suit);
   return (
-    <div className="w-8 h-11 sm:w-10 sm:h-14 rounded border border-border bg-surface flex flex-col items-center justify-center gap-0 select-none" style={{ color: sc }}>
-      <span className="text-[10px] sm:text-xs font-semibold leading-none">{card.rank}</span>
-      <span className="text-[9px] sm:text-[10px] leading-none">{card.suit}</span>
+    <div
+      className={`w-9 h-12 sm:w-11 sm:h-[3.75rem] rounded border border-border bg-surface flex flex-col items-center justify-center gap-0 select-none transition-opacity ${dimmed ? "opacity-30" : ""}`}
+      style={{ color: sc }}
+    >
+      <span className="text-xs sm:text-sm font-semibold leading-none">{card.rank}</span>
+      <span className="text-[10px] sm:text-xs leading-none">{card.suit}</span>
     </div>
   );
 }
@@ -29,14 +32,25 @@ export default function PlayerSeat({
   const dimmed = player.folded;
 
   return (
-    <div className={`flex flex-col items-center gap-1 transition-opacity ${dimmed ? "opacity-40" : ""}`}>
+    <div className={`flex flex-col items-center gap-1 transition-opacity min-w-[3.5rem] ${dimmed ? "opacity-40" : ""}`}>
+      {/* Last action text — simple, Offsuit style */}
+      <div className="h-4 flex items-center justify-center">
+        {player.lastAction && !player.folded ? (
+          <span className="text-[10px] sm:text-xs font-medium text-muted capitalize">
+            {player.lastAction === "all-in" ? "All-in" : player.lastAction}
+          </span>
+        ) : player.folded ? (
+          <span className="text-[10px] sm:text-xs font-medium text-accent">Fold</span>
+        ) : null}
+      </div>
+
       {/* Avatar */}
       <div className="relative">
-        <div className={`text-2xl sm:text-3xl ${isActive ? "animate-pulse" : ""}`}>
+        <div className={`text-3xl sm:text-4xl transition-transform duration-200 ${isActive ? "scale-110" : ""}`}>
           {player.avatar}
         </div>
         {isDealer && (
-          <span className="absolute -bottom-0.5 -right-1 text-[8px] bg-foreground text-background rounded-full w-4 h-4 flex items-center justify-center font-bold">
+          <span className="absolute -bottom-0.5 -right-1.5 text-[9px] bg-foreground text-background rounded-full w-5 h-5 flex items-center justify-center font-bold">
             D
           </span>
         )}
@@ -47,29 +61,22 @@ export default function PlayerSeat({
         {player.name}
       </span>
 
-      {/* Chips */}
-      <span className={`text-[10px] sm:text-xs tabular-nums font-semibold ${isWinner ? "text-correct" : ""}`}>
-        {player.chips}
-      </span>
-
-      {/* Current bet badge */}
-      <AnimatePresence>
-        {player.currentBet > 0 && (
-          <motion.span
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            className="text-[9px] bg-border/60 px-1.5 py-0.5 rounded-full tabular-nums text-muted"
-          >
+      {/* Current bet in accent color / Chips */}
+      <div className="h-4 flex items-center justify-center">
+        {player.isAllIn && !player.folded ? (
+          <span className="text-[10px] sm:text-xs font-bold text-correct tabular-nums">
+            {player.chips}
+          </span>
+        ) : player.currentBet > 0 ? (
+          <span className="text-[10px] sm:text-xs font-semibold text-accent tabular-nums">
             {player.currentBet}
-          </motion.span>
+          </span>
+        ) : (
+          <span className="text-[10px] sm:text-xs tabular-nums text-muted">
+            {player.chips}
+          </span>
         )}
-      </AnimatePresence>
-
-      {/* Status indicators */}
-      {player.isAllIn && !player.folded && (
-        <span className="text-[9px] font-bold text-correct uppercase">All-in</span>
-      )}
+      </div>
 
       {/* Cards at showdown */}
       <AnimatePresence>
@@ -80,7 +87,7 @@ export default function PlayerSeat({
             className="flex gap-0.5 mt-0.5"
           >
             {player.cards.map((card, i) => (
-              <MiniCard key={`${card.rank}${card.suit}-${i}`} card={card} />
+              <MiniCard key={`${card.rank}${card.suit}-${i}`} card={card} dimmed={!isWinner && showCards} />
             ))}
           </motion.div>
         )}
@@ -92,7 +99,7 @@ export default function PlayerSeat({
           <motion.span
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-[9px] text-muted text-center max-w-[5rem] leading-tight"
+            className={`text-[10px] sm:text-xs text-center max-w-[6rem] leading-tight ${isWinner ? "text-correct font-semibold" : "text-muted"}`}
           >
             {player.result.name}
           </motion.span>

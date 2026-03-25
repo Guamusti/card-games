@@ -11,16 +11,31 @@ export type CardBack =
   | "minimal"
   | "crosshatch"
   | "dots"
-  | "tartan"
-  | "hexagons"
-  | "zigzag"
-  | "circles";
+  | "noir"
+  | "slate"
+  | "line"
+  | "shadow";
 
 export type AccentColor = "red" | "blue" | "purple" | "emerald" | "amber" | "rose";
 
 export type TableFelt = "none" | "subtle" | "green" | "blue" | "wine";
 
-export type SuitColorScheme = "classic" | "four-color" | "blue-red" | "mono";
+export type SuitColorScheme = "classic" | "four-color" | "blue-red" | "mono" | "tokyo";
+
+export const PLAYER_AVATARS = ["🐶", "🐱", "🐻", "🦊", "🐼", "🐨", "🦁", "🐯", "🐸", "🐵", "🦄", "🐲"] as const;
+export type PlayerAvatar = (typeof PLAYER_AVATARS)[number];
+
+// Items that are free by default
+export const FREE_AVATARS: PlayerAvatar[] = ["🐶", "🐱", "🐻"];
+export const FREE_CARD_BACKS: CardBack[] = ["classic", "minimal", "noir"];
+export const FREE_TABLE_FELTS: TableFelt[] = ["none", "subtle"];
+
+// Prices for cosmetics (in coins)
+export const AVATAR_PRICE = 2000;
+export const CARD_BACK_PRICE = 3000;
+export const TABLE_FELT_PRICE = 2500;
+export const ACCENT_COLOR_PRICE = 1500;
+export const SUIT_COLOR_PRICE = 2000;
 
 export interface CustomizeState {
   cardBack: CardBack;
@@ -30,6 +45,13 @@ export interface CustomizeState {
   showCardShadow: boolean;
   hapticFeedback: boolean;
   suitColors: SuitColorScheme;
+  playerAvatar: PlayerAvatar;
+  // Owned items
+  ownedAvatars: PlayerAvatar[];
+  ownedCardBacks: CardBack[];
+  ownedTableFelts: TableFelt[];
+  ownedAccentColors: AccentColor[];
+  ownedSuitColors: SuitColorScheme[];
 }
 
 interface CustomizeActions {
@@ -40,6 +62,13 @@ interface CustomizeActions {
   setShowCardShadow: (show: boolean) => void;
   setHapticFeedback: (on: boolean) => void;
   setSuitColors: (scheme: SuitColorScheme) => void;
+  setPlayerAvatar: (avatar: PlayerAvatar) => void;
+  // Purchase actions
+  unlockAvatar: (avatar: PlayerAvatar) => void;
+  unlockCardBack: (back: CardBack) => void;
+  unlockTableFelt: (felt: TableFelt) => void;
+  unlockAccentColor: (color: AccentColor) => void;
+  unlockSuitColor: (scheme: SuitColorScheme) => void;
 }
 
 export type CustomizeStore = CustomizeState & CustomizeActions;
@@ -71,38 +100,86 @@ const defaults: CustomizeState = {
   showCardShadow: true,
   hapticFeedback: true,
   suitColors: "classic",
+  playerAvatar: "🐶",
+  ownedAvatars: [...FREE_AVATARS],
+  ownedCardBacks: [...FREE_CARD_BACKS],
+  ownedTableFelts: [...FREE_TABLE_FELTS],
+  ownedAccentColors: ["red"],
+  ownedSuitColors: ["classic"],
 };
 
-export const useCustomizeStore = create<CustomizeStore>((set, get) => ({
-  ...defaults,
-  ...loadState(),
+export const useCustomizeStore = create<CustomizeStore>((set, get) => {
+  const loaded = loadState();
+  // Ensure free items are always owned
+  const initialOwned = {
+    ownedAvatars: [...new Set([...FREE_AVATARS, ...(loaded.ownedAvatars || [])])],
+    ownedCardBacks: [...new Set([...FREE_CARD_BACKS, ...(loaded.ownedCardBacks || [])])],
+    ownedTableFelts: [...new Set([...FREE_TABLE_FELTS, ...(loaded.ownedTableFelts || [])])],
+    ownedAccentColors: [...new Set(["red" as AccentColor, ...(loaded.ownedAccentColors || [])])],
+    ownedSuitColors: [...new Set(["classic" as SuitColorScheme, ...(loaded.ownedSuitColors || [])])],
+  };
 
-  setCardBack: (cardBack) => {
-    set({ cardBack });
-    saveState({ ...get(), cardBack });
-  },
-  setAccentColor: (accentColor) => {
-    set({ accentColor });
-    saveState({ ...get(), accentColor });
-  },
-  setTableFelt: (tableFelt) => {
-    set({ tableFelt });
-    saveState({ ...get(), tableFelt });
-  },
-  setAnimationSpeed: (animationSpeed) => {
-    set({ animationSpeed });
-    saveState({ ...get(), animationSpeed });
-  },
-  setShowCardShadow: (showCardShadow) => {
-    set({ showCardShadow });
-    saveState({ ...get(), showCardShadow });
-  },
-  setHapticFeedback: (hapticFeedback) => {
-    set({ hapticFeedback });
-    saveState({ ...get(), hapticFeedback });
-  },
-  setSuitColors: (suitColors) => {
-    set({ suitColors });
-    saveState({ ...get(), suitColors });
-  },
-}));
+  return {
+    ...defaults,
+    ...loaded,
+    ...initialOwned,
+
+    setCardBack: (cardBack) => {
+      set({ cardBack });
+      saveState({ ...get(), cardBack });
+    },
+    setAccentColor: (accentColor) => {
+      set({ accentColor });
+      saveState({ ...get(), accentColor });
+    },
+    setTableFelt: (tableFelt) => {
+      set({ tableFelt });
+      saveState({ ...get(), tableFelt });
+    },
+    setAnimationSpeed: (animationSpeed) => {
+      set({ animationSpeed });
+      saveState({ ...get(), animationSpeed });
+    },
+    setShowCardShadow: (showCardShadow) => {
+      set({ showCardShadow });
+      saveState({ ...get(), showCardShadow });
+    },
+    setHapticFeedback: (hapticFeedback) => {
+      set({ hapticFeedback });
+      saveState({ ...get(), hapticFeedback });
+    },
+    setSuitColors: (suitColors) => {
+      set({ suitColors });
+      saveState({ ...get(), suitColors });
+    },
+    setPlayerAvatar: (playerAvatar) => {
+      set({ playerAvatar });
+      saveState({ ...get(), playerAvatar });
+    },
+    unlockAvatar: (avatar) => {
+      const owned = [...get().ownedAvatars, avatar];
+      set({ ownedAvatars: owned });
+      saveState({ ...get(), ownedAvatars: owned });
+    },
+    unlockCardBack: (back) => {
+      const owned = [...get().ownedCardBacks, back];
+      set({ ownedCardBacks: owned });
+      saveState({ ...get(), ownedCardBacks: owned });
+    },
+    unlockTableFelt: (felt) => {
+      const owned = [...get().ownedTableFelts, felt];
+      set({ ownedTableFelts: owned });
+      saveState({ ...get(), ownedTableFelts: owned });
+    },
+    unlockAccentColor: (color) => {
+      const owned = [...get().ownedAccentColors, color];
+      set({ ownedAccentColors: owned });
+      saveState({ ...get(), ownedAccentColors: owned });
+    },
+    unlockSuitColor: (scheme) => {
+      const owned = [...get().ownedSuitColors, scheme];
+      set({ ownedSuitColors: owned });
+      saveState({ ...get(), ownedSuitColors: owned });
+    },
+  };
+});

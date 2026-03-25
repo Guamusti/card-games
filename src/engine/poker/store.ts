@@ -7,24 +7,50 @@ import { AI_NAMES, AI_AVATARS } from "./types";
 import { createDeck, drawCard } from "../deck";
 import { evaluateHand, compareHands } from "./evaluator";
 import { getAIAction } from "./ai";
+import { useWalletStore } from "../wallet";
+import { useStatsStore } from "../stats";
+import { useCustomizeStore } from "../customize/store";
+import { useXPStore } from "../xp";
 
-const INITIAL_CHIPS = 200;
+function loadCustomize() {
+  return useCustomizeStore.getState();
+}
+
 const BIG_BLIND = 2;
 const SMALL_BLIND = 1;
 const NUM_AI = 5;
+
+function getWalletBalance(): number {
+  return useWalletStore.getState().balance;
+}
+
+function syncWallet(chips: number) {
+  // Set wallet to: (wallet balance before buy-in - buy-in) + current table chips
+  // Since buy-in was deducted at deal, we just add current chips back
+  useWalletStore.getState().addChips(chips);
+}
+
+function syncWalletDelta(chipsBefore: number, chipsAfter: number) {
+  // Update wallet by the difference (win or loss)
+  const delta = chipsAfter - chipsBefore;
+  if (delta !== 0) {
+    useWalletStore.getState().addChips(delta);
+  }
+}
 
 function draw(deck: Card[]): { card: Card; deck: Card[] } {
   const [card, remaining] = drawCard(deck);
   return { card, deck: remaining };
 }
 
-function createHumanPlayer(): PokerPlayer {
+function createHumanPlayer(chips?: number): PokerPlayer {
+  const { playerAvatar } = loadCustomize();
   return {
     id: "player",
     name: "You",
-    avatar: "🐶",
+    avatar: playerAvatar,
     cards: [],
-    chips: INITIAL_CHIPS,
+    chips: chips ?? getWalletBalance(),
     currentBet: 0,
     totalBet: 0,
     folded: false,
@@ -33,13 +59,13 @@ function createHumanPlayer(): PokerPlayer {
   };
 }
 
-function createAIPlayer(index: number): PokerPlayer {
+function createAIPlayer(index: number, chips?: number): PokerPlayer {
   return {
     id: `ai-${index}`,
     name: AI_NAMES[index] || `AI ${index + 1}`,
     avatar: AI_AVATARS[index] || "🤖",
     cards: [],
-    chips: INITIAL_CHIPS,
+    chips: chips ?? 200,
     currentBet: 0,
     totalBet: 0,
     folded: false,
@@ -69,6 +95,7 @@ function initialState(): PokerState {
     bigBlind: BIG_BLIND,
     smallBlind: SMALL_BLIND,
     lastAggressorIndex: -1,
+    atTable: false,
   };
 }
 
@@ -80,6 +107,7 @@ function stateOnly(s: PokerState): Partial<PokerStore> {
     minRaise: s.minRaise, dealerIndex: s.dealerIndex, lastAction: s.lastAction,
     winnerIds: s.winnerIds, showAllCards: s.showAllCards, currentRaise: s.currentRaise,
     bigBlind: s.bigBlind, smallBlind: s.smallBlind, lastAggressorIndex: s.lastAggressorIndex,
+    atTable: s.atTable,
   };
 }
 
@@ -92,6 +120,7 @@ interface PokerActions {
   allIn: () => void;
   skipHand: () => void;
   newRound: () => void;
+  leaveTable: () => void;
   setCurrentRaise: (amount: number) => void;
   setBlinds: (sb: number, bb: number) => void;
   reset: () => void;
@@ -183,13 +212,25 @@ function dealCommunity(state: PokerState, count: number): PokerState {
   return { ...state, deck, community };
 }
 
+/** Deal all 5 community cards upfront (shown face-down, revealed by phase) */
+function dealAllCommunity(state: PokerState): PokerState {
+  let deck = [...state.deck];
+  const community: Card[] = [];
+  for (let i = 0; i < 5; i++) {
+    const { card, deck: remaining } = draw(deck);
+    community.push(card);
+    deck = remaining;
+  }
+  return { ...state, deck, community };
+}
+
 function getNextPhase(phase: PokerPhase): PokerPhase {
   const order: PokerPhase[] = ["preflop", "flop", "turn", "river", "showdown"];
   const idx = order.indexOf(phase);
   return idx >= 0 && idx < order.length - 1 ? order[idx + 1] : "showdown";
 }
 
-/** Async advance — deals community cards with delay so player can see & act */
+/** Async advance — transitions phase with a brief delay for card flip animation */
 function advancePhaseAsync(
   set: (partial: Partial<PokerStore>) => void,
   get: () => PokerStore,
@@ -207,27 +248,28 @@ function advancePhaseAsync(
     return;
   }
 
-  // Set phase to "dealing" momentarily to prevent actions during card animation
+  // Brief "dealing" phase for card flip animation
   set({ phase: "dealing" as PokerPhase, lastAction: null });
 
-  const CARD_DELAY = 400;
+  const FLIP_DELAY = nextPhase === "flop" ? 600 : 400;
 
-  const finishPhaseTransition = (deck: Card[], finalCommunity: Card[]) => {
+  setTimeout(() => {
     const updatedPlayers = get().players.map((p) => ({ ...p, currentBet: 0 }));
     const firstToAct = nextActiveIndex(updatedPlayers, state.dealerIndex, state.dealerIndex);
 
     if (actingPlayers(updatedPlayers).length <= 1) {
-      set(stateOnly(runOutBoard({
-        ...state, deck, community: finalCommunity, players: updatedPlayers,
-        phase: nextPhase, minRaise: state.bigBlind, activePlayerIndex: firstToAct,
+      // All-in runout — just go straight to showdown
+      const showdownState: PokerState = {
+        ...state, players: updatedPlayers,
+        phase: "showdown", minRaise: state.bigBlind, activePlayerIndex: firstToAct,
         lastAggressorIndex: firstToAct,
-      })));
+      };
+      set(stateOnly(resolveShowdown(showdownState)));
       return;
     }
 
-    // Reset lastAggressorIndex to firstToAct — round ends when action comes back here
     set({
-      deck, community: finalCommunity, players: updatedPlayers,
+      players: updatedPlayers,
       phase: nextPhase, minRaise: state.bigBlind, activePlayerIndex: firstToAct,
       lastAggressorIndex: firstToAct,
     });
@@ -238,58 +280,24 @@ function advancePhaseAsync(
         scheduleAIAction(set, get);
       }
     }
-  };
-
-  if (nextPhase === "flop") {
-    let deck = [...state.deck];
-    const community = [...state.community];
-    const flopCards: Card[] = [];
-    for (let i = 0; i < 3; i++) {
-      const { card, deck: remaining } = draw(deck);
-      flopCards.push(card);
-      deck = remaining;
-    }
-
-    setTimeout(() => {
-      set({ community: [...community, flopCards[0]] });
-    }, CARD_DELAY);
-
-    setTimeout(() => {
-      set({ community: [...community, flopCards[0], flopCards[1]] });
-    }, CARD_DELAY * 2);
-
-    setTimeout(() => {
-      finishPhaseTransition(deck, [...community, ...flopCards]);
-    }, CARD_DELAY * 3);
-
-  } else if (nextPhase === "turn" || nextPhase === "river") {
-    let deck = [...state.deck];
-    const community = [...state.community];
-    const { card, deck: remaining } = draw(deck);
-    deck = remaining;
-
-    setTimeout(() => {
-      finishPhaseTransition(deck, [...community, card]);
-    }, CARD_DELAY);
-  }
+  }, FLIP_DELAY);
 }
 
 function runOutBoard(state: PokerState): PokerState {
-  let s = { ...state };
-  while (s.community.length < 5) {
-    const needed = s.community.length === 0 ? 3 : 1;
-    s = dealCommunity(s, needed);
-  }
-  s.phase = "showdown";
+  // Community cards are pre-dealt, just go to showdown
+  const s = { ...state, phase: "showdown" as PokerPhase };
   return resolveShowdown(s);
 }
 
 function resolveShowdown(state: PokerState): PokerState {
   const players = state.players.map((p) => ({ ...p }));
   const active = players.filter((p) => !p.folded);
+  const human = players.find((p) => p.isHuman);
+  const humanChipsBefore = human ? human.chips : 0;
 
   if (active.length === 1) {
     active[0].chips += state.pot;
+    recordPokerStats(state, players, [active[0].id], humanChipsBefore);
     return {
       ...state, players, phase: "settled",
       winnerIds: [active[0].id], showAllCards: true, pot: 0,
@@ -312,10 +320,43 @@ function resolveShowdown(state: PokerState): PokerState {
     w.chips += share + (i === 0 ? remainder : 0);
   });
 
+  const winnerIds = winners.map((w) => w.id);
+  recordPokerStats(state, players, winnerIds, humanChipsBefore);
+
   return {
     ...state, players, phase: "settled",
-    winnerIds: winners.map((w) => w.id), showAllCards: true, pot: 0,
+    winnerIds, showAllCards: true, pot: 0,
   };
+}
+
+function recordPokerStats(state: PokerState, players: PokerPlayer[], winnerIds: string[], humanChipsBefore: number) {
+  const human = players.find((p) => p.isHuman);
+  if (!human) return;
+
+  const won = winnerIds.includes("player");
+  const folded = human.folded;
+  const vpip = human.totalBet > state.bigBlind || !folded; // simplified: didn't fold preflop
+  const pfr = human.totalBet > state.bigBlind * 2; // raised preflop (rough)
+  const wentToShowdown = !folded && state.community.length >= 5;
+  const wonAtShowdown = wentToShowdown && won;
+  const chipsAfter = human.chips;
+  const chipsWon = won ? Math.max(0, chipsAfter - humanChipsBefore) : 0;
+  const chipsLost = !won ? Math.max(0, humanChipsBefore - chipsAfter) : 0;
+  const foldPhase = folded
+    ? (state.community.length === 0 ? "preflop" as const : "postflop" as const)
+    : undefined;
+
+  useStatsStore.getState().recordPokerHand({
+    won, folded, vpip, pfr, wentToShowdown, wonAtShowdown,
+    chipsWon, chipsLost, potSize: state.pot,
+    foldPhase, wentAllIn: human.isAllIn,
+  });
+
+  // Award XP: 10 base + 15 for win + 5 for showdown
+  let xp = 10;
+  if (won) xp += 15;
+  if (wentToShowdown) xp += 5;
+  useXPStore.getState().addXP(xp);
 }
 
 function processAction(
@@ -331,6 +372,7 @@ function processAction(
 
   if (action === "fold") {
     player.folded = true;
+    player.lastAction = "fold";
     const remaining = players.filter((p) => !p.folded);
     if (remaining.length === 1) {
       remaining[0].chips += pot;
@@ -343,6 +385,10 @@ function processAction(
     }
   }
 
+  if (action === "check") {
+    player.lastAction = "check";
+  }
+
   if (action === "call") {
     const toCall = Math.min(maxBet - player.currentBet, player.chips);
     player.chips -= toCall;
@@ -350,6 +396,7 @@ function processAction(
     player.totalBet += toCall;
     pot += toCall;
     if (player.chips === 0) player.isAllIn = true;
+    player.lastAction = "call";
   }
 
   if (action === "raise") {
@@ -362,6 +409,7 @@ function processAction(
     minRaise = Math.max(minRaise, player.currentBet - maxBet);
     if (player.chips === 0) player.isAllIn = true;
     lastAggressorIndex = playerIdx;
+    player.lastAction = "raise";
   }
 
   if (action === "all-in") {
@@ -375,6 +423,7 @@ function processAction(
       lastAggressorIndex = playerIdx;
     }
     minRaise = Math.max(minRaise, player.currentBet - maxBet);
+    player.lastAction = "all-in";
   }
 
   let newState: PokerState = {
@@ -435,9 +484,13 @@ function scheduleAIAction(
     const maxBet = Math.max(...state.players.map((p) => p.currentBet));
     const toCall = Math.max(0, maxBet - activePlayer.currentBet);
 
+    // Only pass revealed community cards to AI (not pre-dealt hidden ones)
+    const revealedCount = state.phase === "preflop" ? 0 : state.phase === "flop" ? 3 : state.phase === "turn" ? 4 : 5;
+    const visibleCommunity = state.community.slice(0, revealedCount);
+
     const decision = getAIAction({
       holeCards: activePlayer.cards,
-      community: state.community,
+      community: visibleCommunity,
       pot: state.pot,
       toCall,
       chips: activePlayer.chips,
@@ -513,12 +566,28 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
     const state = get();
     if (state.phase !== "betting") return;
 
+    let humanChips: number;
+
+    if (state.atTable) {
+      // Continuation — player keeps their chips, no new buy-in
+      const human = state.players.find((p) => p.isHuman);
+      humanChips = human?.chips ?? 0;
+      if (humanChips <= 0) return;
+    } else {
+      // First hand — buy-in from wallet
+      const buyIn = state.bigBlind * 100;
+      const walletBal = getWalletBalance();
+      humanChips = Math.min(buyIn, walletBal);
+      if (humanChips <= 0) return;
+      useWalletStore.getState().setBalance(walletBal - humanChips);
+    }
+
     let newState: PokerState = {
       ...initialState(),
       deck: createDeck(1),
       players: state.players.map((p) => ({
-        ...(p.isHuman ? createHumanPlayer() : createAIPlayer(parseInt(p.id.split("-")[1]) || 0)),
-        chips: p.chips,
+        ...(p.isHuman ? createHumanPlayer(humanChips) : createAIPlayer(parseInt(p.id.split("-")[1]) || 0, p.chips)),
+        chips: p.isHuman ? humanChips : p.chips,
         name: p.name,
         avatar: p.avatar,
         id: p.id,
@@ -528,10 +597,12 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
       bigBlind: state.bigBlind,
       smallBlind: state.smallBlind,
       phase: "dealing",
+      atTable: true,
     };
 
     newState = postBlinds(newState);
     newState = dealHoleCards(newState);
+    newState = dealAllCommunity(newState);
     newState.phase = "dealing";
 
     set(stateOnly(newState));
@@ -602,16 +673,25 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
       lastAction: state.lastAction, winnerIds: state.winnerIds,
       showAllCards: state.showAllCards, currentRaise: state.currentRaise,
       bigBlind: state.bigBlind, smallBlind: state.smallBlind,
-      lastAggressorIndex: state.lastAggressorIndex,
+      lastAggressorIndex: state.lastAggressorIndex, atTable: state.atTable,
     };
     set(stateOnly(runOutBoard(pokerState)));
   },
 
   newRound: () => {
     const state = get();
+    const human = state.players.find((p) => p.isHuman);
+    if (!human || human.chips <= 0) {
+      // Out of chips — return to lobby (leaveTable will sync wallet)
+      get().leaveTable();
+      return;
+    }
+    // Continue at the table — keep current chip stacks (no new buy-in)
+    const aiChips = state.bigBlind * 100;
     const players = state.players.map((p) => ({
-      ...(p.isHuman ? createHumanPlayer() : createAIPlayer(0)),
-      chips: p.chips <= 0 ? state.bigBlind * 100 : p.chips,
+      ...(p.isHuman
+        ? createHumanPlayer(p.chips)
+        : createAIPlayer(parseInt(p.id.split("-")[1]) || 0, p.chips <= 0 ? aiChips : p.chips)),
       name: p.name,
       avatar: p.avatar,
       id: p.id,
@@ -623,7 +703,17 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
       dealerIndex: (state.dealerIndex + 1) % state.players.length,
       bigBlind: state.bigBlind,
       smallBlind: state.smallBlind,
+      atTable: true,
     }));
+  },
+
+  leaveTable: () => {
+    const state = get();
+    const human = state.players.find((p) => p.isHuman);
+    if (human && human.chips > 0) {
+      syncWallet(human.chips);
+    }
+    set(stateOnly({ ...initialState(), bigBlind: state.bigBlind, smallBlind: state.smallBlind, atTable: false }));
   },
 
   setCurrentRaise: (amount: number) => {
@@ -633,8 +723,13 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
   setBlinds: (sb: number, bb: number) => {
     const state = get();
     if (state.phase !== "betting") return;
-    const startChips = bb * 100;
-    const players = state.players.map((p) => ({ ...p, chips: startChips }));
+    const buyIn = bb * 100;
+    const walletBal = getWalletBalance();
+    const humanChips = Math.min(buyIn, walletBal);
+    const players = state.players.map((p) => ({
+      ...p,
+      chips: p.isHuman ? humanChips : buyIn,
+    }));
     set({ smallBlind: sb, bigBlind: bb, players, currentRaise: bb * 2 });
   },
 

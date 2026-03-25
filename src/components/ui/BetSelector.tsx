@@ -2,13 +2,29 @@
 
 import { useState, useRef } from "react";
 import { useGameStore } from "@/engine/store";
+import { useWalletStore } from "@/engine/wallet";
 
 const PRESETS = [25, 50, 100, 250, 500];
 
 export default function BetSelector() {
-  const { currentBet, balance, setBet } = useGameStore();
+  const { currentBet, setBet } = useGameStore();
+  const { balance, rebuy } = useWalletStore();
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  if (balance <= 0) {
+    return (
+      <div className="flex flex-col items-center gap-3">
+        <span className="text-sm text-muted">Out of chips</span>
+        <button
+          onClick={rebuy}
+          className="px-6 py-2.5 text-sm font-semibold uppercase tracking-widest border border-foreground text-foreground hover:bg-foreground hover:text-background transition-colors rounded-lg"
+        >
+          Rebuy $10,000
+        </button>
+      </div>
+    );
+  }
 
   const handleManualBet = () => {
     setEditing(true);
@@ -35,6 +51,7 @@ export default function BetSelector() {
         <button
           onClick={() => setBet(Math.max(10, currentBet - 25))}
           className="w-8 h-8 flex items-center justify-center rounded-full border border-border text-muted hover:text-foreground hover:border-foreground transition-colors text-lg leading-none"
+          aria-label="Decrease bet"
         >
           -
         </button>
@@ -66,6 +83,7 @@ export default function BetSelector() {
         <button
           onClick={() => setBet(Math.min(balance, currentBet + 25))}
           className="w-8 h-8 flex items-center justify-center rounded-full border border-border text-muted hover:text-foreground hover:border-foreground transition-colors text-lg leading-none"
+          aria-label="Increase bet"
         >
           +
         </button>

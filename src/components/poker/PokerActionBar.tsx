@@ -8,7 +8,7 @@ import { useHaptic } from "@/hooks/useHaptic";
 export default function PokerActionBar() {
   const {
     phase, players, activePlayerIndex, pot, minRaise, bigBlind,
-    deal, fold, check, call, raise, allIn, skipHand, newRound, winnerIds,
+    deal, fold, check, call, raise, allIn, skipHand, newRound, leaveTable, winnerIds,
   } = usePokerStore();
 
   const [showRaisePanel, setShowRaisePanel] = useState(false);
@@ -25,7 +25,7 @@ export default function PokerActionBar() {
       <div className="flex justify-center">
         <button
           onClick={deal}
-          className="px-8 py-3 text-sm font-semibold uppercase tracking-widest border border-foreground text-foreground hover:bg-foreground hover:text-background transition-colors duration-150 rounded-lg"
+          className="px-8 py-3 text-base font-semibold uppercase tracking-widest border border-foreground text-foreground hover:bg-foreground hover:text-background transition-colors duration-150 rounded-lg"
         >
           Deal
         </button>
@@ -35,39 +35,64 @@ export default function PokerActionBar() {
 
   // Dealing (cards being dealt)
   if (phase === "dealing") {
-    return <div className="text-xs text-muted text-center animate-pulse">Dealing...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 w-full px-4 min-h-[5.5rem]">
+        <span className="text-sm text-muted text-center animate-pulse">Dealing...</span>
+      </div>
+    );
   }
 
   // Settled
   if (phase === "settled") {
     const playerFolded = player.folded;
     const playerWon = winnerIds.includes("player");
+    const busted = player.chips <= 0;
+
+    const handleNextHand = () => {
+      newRound();
+      // Auto-deal after a short delay for the state to reset
+      setTimeout(() => {
+        usePokerStore.getState().deal();
+      }, 100);
+    };
 
     return (
-      <div className="flex flex-col items-center gap-3 w-full px-4">
+      <div className="flex flex-col items-center justify-center gap-3 w-full px-4 min-h-[5.5rem]">
         <div className="text-center">
           {playerWon && (
-            <span className="text-sm sm:text-base font-semibold text-correct">You win!</span>
+            <span className="text-base sm:text-lg font-semibold text-correct">You win!</span>
           )}
           {!playerWon && !playerFolded && (
-            <span className="text-sm sm:text-base font-semibold text-accent">You lose</span>
+            <span className="text-base sm:text-lg font-semibold text-accent">You lose</span>
+          )}
+          {busted && (
+            <span className="text-base sm:text-lg font-semibold text-accent block mt-1">Out of chips!</span>
           )}
         </div>
         <div className="flex gap-2">
-          {playerFolded && (
+          {busted ? (
             <button
-              onClick={skipHand}
-              className="px-5 py-2.5 text-xs font-semibold uppercase tracking-widest border border-border text-muted hover:text-foreground hover:border-foreground transition-colors rounded-lg"
+              onClick={leaveTable}
+              className="px-8 py-3 text-base font-semibold uppercase tracking-widest border border-foreground text-foreground hover:bg-foreground hover:text-background transition-colors rounded-lg"
             >
-              Skip
+              Leave Table
             </button>
+          ) : (
+            <>
+              <button
+                onClick={leaveTable}
+                className="px-5 py-2.5 text-sm font-semibold uppercase tracking-widest border border-border text-muted hover:text-foreground hover:border-foreground transition-colors rounded-lg"
+              >
+                Leave
+              </button>
+              <button
+                onClick={handleNextHand}
+                className="px-8 py-3 text-base font-semibold uppercase tracking-widest border border-foreground text-foreground hover:bg-foreground hover:text-background transition-colors rounded-lg"
+              >
+                Next Hand
+              </button>
+            </>
           )}
-          <button
-            onClick={newRound}
-            className="px-8 py-3 text-sm font-semibold uppercase tracking-widest border border-foreground text-foreground hover:bg-foreground hover:text-background transition-colors rounded-lg"
-          >
-            Next Hand
-          </button>
         </div>
       </div>
     );
@@ -77,21 +102,20 @@ export default function PokerActionBar() {
   if (!isPlayerTurn || player.folded || player.isAllIn) {
     if (player.folded) {
       return (
-        <div className="flex flex-col items-center gap-2 w-full px-4">
-          <span className="text-xs text-muted">You folded</span>
+        <div className="flex flex-col items-center justify-center gap-2 w-full px-4 min-h-[5.5rem]">
+          <span className="text-sm text-muted">You folded</span>
           <button
             onClick={skipHand}
-            className="px-5 py-2.5 text-xs font-semibold uppercase tracking-widest border border-border text-muted hover:text-foreground hover:border-foreground transition-colors rounded-lg"
+            className="px-5 py-2.5 text-sm font-semibold uppercase tracking-widest border border-border text-muted hover:text-foreground hover:border-foreground transition-colors rounded-lg"
           >
             Skip to End
           </button>
         </div>
       );
     }
-    if (player.isAllIn) {
-      return <div className="text-xs text-muted text-center">All-in — waiting...</div>;
-    }
-    return <div className="text-xs text-muted text-center animate-pulse">Opponent thinking...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 w-full px-4 min-h-[5.5rem]" />
+    );
   }
 
   // Player's turn
@@ -110,8 +134,16 @@ export default function PokerActionBar() {
   const halfPot = maxBet + Math.floor(pot / 2);
   const potRaise = maxBet + pot;
 
+  const potOdds = toCall > 0 ? Math.round((toCall / (pot + toCall)) * 100) : 0;
+
   return (
-    <div className="flex flex-col items-center gap-2 w-full px-4">
+    <div className="flex flex-col items-center gap-2 w-full px-4 min-h-[5.5rem]">
+      {/* Pot odds hint */}
+      {toCall > 0 && !showRaisePanel && (
+        <span className="text-xs sm:text-sm text-muted tabular-nums">
+          {toCall} to call · pot odds {potOdds}%
+        </span>
+      )}
       {/* Raise panel */}
       <AnimatePresence>
         {showRaisePanel && (
@@ -123,7 +155,7 @@ export default function PokerActionBar() {
           >
             {/* Slider row */}
             <div className="flex items-center gap-3">
-              <span className="text-xs text-muted tabular-nums min-w-[3rem]">↑ {effectiveRaise}</span>
+              <span className="text-sm text-muted tabular-nums min-w-[3.5rem]">↑ {effectiveRaise}</span>
               <input
                 type="range"
                 min={minRaiseTotal}
@@ -139,9 +171,10 @@ export default function PokerActionBar() {
                   setShowRaisePanel(false);
                   setRaiseAmount(0);
                 }}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-foreground text-foreground hover:bg-foreground hover:text-background transition-colors"
+                className="w-9 h-9 flex items-center justify-center rounded-full border border-foreground text-foreground hover:bg-foreground hover:text-background transition-colors text-sm"
+                aria-label={`Raise to ${effectiveRaise}`}
               >
-                ↑
+                ✓
               </button>
             </div>
 
@@ -149,28 +182,39 @@ export default function PokerActionBar() {
             <div className="flex gap-2">
               <button
                 onClick={addOneBB}
-                className="flex-1 py-2 text-xs font-medium rounded-lg bg-border/50 hover:bg-border transition-colors"
+                className="flex-1 py-2 text-sm font-medium rounded-lg bg-border/50 hover:bg-border transition-colors"
               >
                 +1 BB
               </button>
               <button
                 onClick={() => setRaiseAmount(Math.min(halfPot, maxRaise))}
-                className="flex-1 py-2 text-xs font-medium rounded-lg bg-border/50 hover:bg-border transition-colors"
+                className="flex-1 py-2 text-sm font-medium rounded-lg bg-border/50 hover:bg-border transition-colors"
               >
                 ½ Pot
               </button>
               <button
                 onClick={() => setRaiseAmount(Math.min(potRaise, maxRaise))}
-                className="flex-1 py-2 text-xs font-medium rounded-lg bg-border/50 hover:bg-border transition-colors"
+                className="flex-1 py-2 text-sm font-medium rounded-lg bg-border/50 hover:bg-border transition-colors"
               >
                 Pot
+              </button>
+              <button
+                onClick={() => {
+                  haptic.heavy();
+                  setShowRaisePanel(false);
+                  setRaiseAmount(0);
+                  allIn();
+                }}
+                className="flex-1 py-2 text-sm font-bold rounded-lg bg-border/50 hover:bg-border text-correct transition-colors"
+              >
+                All-in
               </button>
               <button
                 onClick={() => {
                   setShowRaisePanel(false);
                   setRaiseAmount(0);
                 }}
-                className="w-10 py-2 text-xs font-medium rounded-lg bg-border/50 hover:bg-border transition-colors"
+                className="w-10 py-2 text-sm font-medium rounded-lg bg-border/50 hover:bg-border transition-colors"
               >
                 ✕
               </button>
@@ -179,19 +223,19 @@ export default function PokerActionBar() {
         )}
       </AnimatePresence>
 
-      {/* Main action buttons */}
-      <div className="flex justify-center gap-2 w-full max-w-md">
+      {/* Main action buttons — compact Check/Call + Raise */}
+      <div className="flex justify-center gap-2 w-full max-w-xs">
         {canCheck ? (
           <button
             onClick={() => { haptic.tap(); check(); }}
-            className="flex-1 py-3 text-sm font-medium rounded-lg border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all"
+            className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all"
           >
             Check
           </button>
         ) : (
           <button
             onClick={() => { haptic.tap(); call(); }}
-            className="flex-1 py-3 text-sm font-medium rounded-lg border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all"
+            className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all"
           >
             Call {toCall}
           </button>
@@ -200,30 +244,13 @@ export default function PokerActionBar() {
         <button
           onClick={() => {
             haptic.tap();
-            if (showRaisePanel) {
-              raise(effectiveRaise);
-              setShowRaisePanel(false);
-              setRaiseAmount(0);
-            } else {
-              setShowRaisePanel(true);
-            }
+            setShowRaisePanel(!showRaisePanel);
+            setRaiseAmount(0);
           }}
           disabled={player.chips <= toCall}
-          className="flex-1 py-3 text-sm font-medium rounded-lg border border-foreground text-foreground hover:bg-foreground hover:text-background disabled:border-border disabled:text-border disabled:cursor-not-allowed transition-all"
+          className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-foreground text-foreground hover:bg-foreground hover:text-background disabled:border-border disabled:text-border disabled:cursor-not-allowed transition-all"
         >
-          Raise {showRaisePanel ? effectiveRaise : ""}
-        </button>
-
-        <button
-          onClick={() => {
-            haptic.heavy();
-            setShowRaisePanel(false);
-            allIn();
-          }}
-          className="w-12 py-3 text-sm font-medium rounded-lg border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all"
-          title="All-in"
-        >
-          ↑
+          Raise
         </button>
       </div>
 

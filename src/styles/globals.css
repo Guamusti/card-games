@@ -97,6 +97,18 @@
   --color-suit-diamond: var(--color-foreground);
   --color-suit-club: var(--color-foreground);
 }
+[data-suit-colors="tokyo"] {
+  --color-suit-spade: #6366f1;
+  --color-suit-heart: #f43f5e;
+  --color-suit-diamond: #06b6d4;
+  --color-suit-club: #a855f7;
+}
+.dark [data-suit-colors="tokyo"], [data-suit-colors="tokyo"].dark {
+  --color-suit-spade: #7784ff;
+  --color-suit-heart: #ff68b3;
+  --color-suit-diamond: #22d3ee;
+  --color-suit-club: #b67af1;
+}
 
 /* ───── Base ───── */
 html {
@@ -121,6 +133,10 @@ body {
   width: 4.75rem;
   height: 6.75rem;
 }
+.player-card-size {
+  width: 5.5rem;
+  height: 7.75rem;
+}
 .card-rank {
   font-size: 1.1rem;
   line-height: 1;
@@ -137,6 +153,10 @@ body {
   .card-size {
     width: 6rem;
     height: 8.75rem;
+  }
+  .player-card-size {
+    width: 6.5rem;
+    height: 9.5rem;
   }
   .card-rank {
     font-size: 1.5rem;

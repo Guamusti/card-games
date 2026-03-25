@@ -10,7 +10,22 @@
       "Bash(npx next:*)",
       "mcp__Claude_Preview__preview_start",
       "Bash(node -e \"require\\(''''./src/engine/strategy.ts''''\\)\")",
-      "Bash(curl -s http://localhost:3000/)"
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(vercel --yes)",
+      "Bash(vercel login:*)",
+      "Bash(vercel --yes --prod)",
+      "Bash(vercel --yes --prod --name bj-trainer)",
+      "Bash(vercel --prod)",
+      "Bash(find 'C:/00. MMS/00. Apps Mias/BJ/src/app' -type f -name *.tsx -o -name *.ts -o -name *.json)",
+      "Bash(npx vercel:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(xargs kill:*)",
+      "Bash(certutil -hashfile '/c/00. MMS/00. Apps Mias/BJ/src/app/customize/page.tsx' MD5)",
+      "Bash(cp src/app/customize/page.tsx src/app/customize/page.tsx.bak)",
+      "Bash(rm src/app/customize/page.tsx)",
+      "Bash(cp src/app/customize/page.tsx.bak src/app/customize/page.tsx)",
+      "Bash(rm src/app/customize/page.tsx.bak)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

@@ -11,15 +11,16 @@ interface PokerCardProps {
   hidden?: boolean;
   delay?: number;
   small?: boolean;
+  large?: boolean;
 }
 
-export default function PokerCard({ card, hidden = false, delay = 0, small = false }: PokerCardProps) {
+export default function PokerCard({ card, hidden = false, delay = 0, small = false, large = false }: PokerCardProps) {
   const sc = suitColor(card.suit);
   const { cardBack, showCardShadow, animationSpeed } = useCustomizeStore();
   const back = getCardBack(cardBack);
   const dur = animationSpeed === "fast" ? 0.25 : animationSpeed === "slow" ? 0.6 : 0.4;
 
-  const sizeClass = small ? "poker-card-sm" : "card-size";
+  const sizeClass = small ? "poker-card-sm" : large ? "player-card-size" : "card-size";
 
   if (hidden) {
     return (

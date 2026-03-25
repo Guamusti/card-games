@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "@/styles/globals.css";
 import { PwaRegister } from "@/components/PwaRegister";
 import AccentProvider from "@/components/AccentProvider";
+import GlobalProviders from "@/components/GlobalProviders";
 
 export const metadata: Metadata = {
   title: "Card Trainer",
@@ -39,6 +40,7 @@ export default function RootLayout({
       </head>
       <body>
         <AccentProvider />
+        <GlobalProviders />
         {children}
         <PwaRegister />
       </body>
