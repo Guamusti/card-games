@@ -11,6 +11,21 @@ export default function ActionBar() {
   const { phase, hands, activeHandIndex, dealer, hit, stand, double, split, deal, newRound } =
     useGameStore();
 
+  // Compute these every render so hooks are always called in the same order
+  const hand = phase === "playing" ? hands[activeHandIndex] : null;
+  const canDbl = hand ? hand.cards.length === 2 : false;
+  const canSpl = hand ? canSplit(hand) : false;
+  const dealerUpcard = phase === "playing" ? dealer.cards[0] : undefined;
+
+  const optimal = hand && dealerUpcard
+    ? getOptimalAction(hand.cards, dealerUpcard, canDbl, canSpl)
+    : null;
+
+  const probs = useMemo(() => {
+    if (!hand || !dealerUpcard) return null;
+    return getBJActionProbabilities(hand.cards, dealerUpcard, canDbl, canSpl);
+  }, [hand, dealerUpcard, canDbl, canSpl]);
+
   if (phase === "dealing") return null;
 
   if (phase === "betting") {
@@ -39,22 +54,7 @@ export default function ActionBar() {
     );
   }
 
-  if (phase !== "playing") return null;
-
-  const hand = hands[activeHandIndex];
-  const canDbl = hand.cards.length === 2;
-  const canSpl = canSplit(hand);
-
-  // Get optimal action for peek feedback
-  const dealerUpcard = dealer.cards[0];
-  const optimal = dealerUpcard
-    ? getOptimalAction(hand.cards, dealerUpcard, canDbl, canSpl)
-    : null;
-
-  const probs = useMemo(() => {
-    if (!dealerUpcard) return null;
-    return getBJActionProbabilities(hand.cards, dealerUpcard, canDbl, canSpl);
-  }, [hand.cards, dealerUpcard, canDbl, canSpl]);
+  if (phase !== "playing" || !hand) return null;
 
   return (
     <div className="flex justify-center gap-2 sm:gap-3 w-full px-4">
