@@ -11,6 +11,8 @@ import { useWalletStore } from "../wallet";
 import { useStatsStore } from "../stats";
 import { useCustomizeStore } from "../customize/store";
 import { useXPStore } from "../xp";
+import { usePnLStore } from "../pnlHistory";
+import { useTournamentStore } from "./tournament";
 
 function loadCustomize() {
   return useCustomizeStore.getState();
@@ -44,10 +46,10 @@ function draw(deck: Card[]): { card: Card; deck: Card[] } {
 }
 
 function createHumanPlayer(chips?: number): PokerPlayer {
-  const { playerAvatar } = loadCustomize();
+  const { playerAvatar, nickname } = loadCustomize();
   return {
     id: "player",
-    name: "You",
+    name: nickname || "You",
     avatar: playerAvatar,
     cards: [],
     chips: chips ?? getWalletBalance(),
@@ -357,6 +359,10 @@ function recordPokerStats(state: PokerState, players: PokerPlayer[], winnerIds: 
   if (won) xp += 15;
   if (wentToShowdown) xp += 5;
   useXPStore.getState().addXP(xp);
+
+  // Record PnL snapshot — wallet balance + chips still on the table
+  const walletBal = useWalletStore.getState().balance;
+  usePnLStore.getState().recordSnapshot(walletBal + chipsAfter, "poker");
 }
 
 function processAction(
@@ -566,9 +572,20 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
     const state = get();
     if (state.phase !== "betting") return;
 
+    const tState = useTournamentStore.getState();
+    const inTournament = tState.isTournament;
     let humanChips: number;
 
-    if (state.atTable) {
+    if (inTournament) {
+      // Tournament mode — use tournament chips, no wallet interaction
+      if (state.atTable) {
+        const human = state.players.find((p) => p.isHuman);
+        humanChips = human?.chips ?? 0;
+        if (humanChips <= 0) return;
+      } else {
+        humanChips = tState.startingChips;
+      }
+    } else if (state.atTable) {
       // Continuation — player keeps their chips, no new buy-in
       const human = state.players.find((p) => p.isHuman);
       humanChips = human?.chips ?? 0;
@@ -582,12 +599,15 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
       useWalletStore.getState().setBalance(walletBal - humanChips);
     }
 
+    // In tournament first deal, AI gets starting chips too
+    const aiDefaultChips = inTournament && !state.atTable ? tState.startingChips : undefined;
+
     let newState: PokerState = {
       ...initialState(),
       deck: createDeck(1),
       players: state.players.map((p) => ({
         ...(p.isHuman ? createHumanPlayer(humanChips) : createAIPlayer(parseInt(p.id.split("-")[1]) || 0, p.chips)),
-        chips: p.isHuman ? humanChips : p.chips,
+        chips: p.isHuman ? humanChips : (aiDefaultChips ?? p.chips),
         name: p.name,
         avatar: p.avatar,
         id: p.id,
@@ -680,7 +700,71 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
 
   newRound: () => {
     const state = get();
+    const tState = useTournamentStore.getState();
+    const inTournament = tState.isTournament;
     const human = state.players.find((p) => p.isHuman);
+
+    if (inTournament) {
+      // Tournament mode: advance blinds, check eliminations
+      tState.advanceBlinds();
+
+      // Eliminate players with 0 chips
+      for (const p of state.players) {
+        if (p.chips <= 0 && !p.isHuman) {
+          const tPlayer = tState.players.find((tp) => tp.id === p.id);
+          if (tPlayer && !tPlayer.eliminated) {
+            useTournamentStore.getState().eliminatePlayer(p.id);
+          }
+        }
+      }
+
+      // Check if human is eliminated
+      if (!human || human.chips <= 0) {
+        useTournamentStore.getState().eliminatePlayer("player");
+        // Mark tournament over in poker state
+        set({ phase: "settled" as PokerPhase });
+        return;
+      }
+
+      // Update tournament player chips
+      const updatedTState = useTournamentStore.getState();
+      if (updatedTState.tournamentOver) {
+        // Player won (last standing)
+        set({ phase: "settled" as PokerPhase });
+        return;
+      }
+
+      // Get current tournament blinds
+      const blinds = updatedTState.getCurrentBlinds();
+
+      // Filter out eliminated AI players, keep only those with chips
+      const activePlayers = state.players.filter((p) => {
+        if (p.isHuman) return true;
+        return p.chips > 0;
+      });
+
+      const players = activePlayers.map((p) => ({
+        ...(p.isHuman
+          ? createHumanPlayer(p.chips)
+          : createAIPlayer(parseInt(p.id.split("-")[1]) || 0, p.chips)),
+        name: p.name,
+        avatar: p.avatar,
+        id: p.id,
+        isHuman: p.isHuman,
+      }));
+
+      set(stateOnly({
+        ...initialState(),
+        players,
+        dealerIndex: (state.dealerIndex + 1) % players.length,
+        bigBlind: blinds.big,
+        smallBlind: blinds.small,
+        atTable: true,
+      }));
+      return;
+    }
+
+    // Cash game mode
     if (!human || human.chips <= 0) {
       // Out of chips — return to lobby (leaveTable will sync wallet)
       get().leaveTable();
@@ -709,9 +793,18 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
 
   leaveTable: () => {
     const state = get();
-    const human = state.players.find((p) => p.isHuman);
-    if (human && human.chips > 0) {
-      syncWallet(human.chips);
+    const tState = useTournamentStore.getState();
+    const inTournament = tState.isTournament;
+
+    if (!inTournament) {
+      const human = state.players.find((p) => p.isHuman);
+      if (human && human.chips > 0) {
+        syncWallet(human.chips);
+      }
+    }
+    // End tournament if active
+    if (inTournament) {
+      useTournamentStore.getState().endTournament();
     }
     set(stateOnly({ ...initialState(), bigBlind: state.bigBlind, smallBlind: state.smallBlind, atTable: false }));
   },

@@ -6,8 +6,11 @@ import { motion } from "framer-motion";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import { useStatsStore } from "@/engine/stats";
 import { useWalletStore } from "@/engine/wallet";
+import { usePnLStore } from "@/engine/pnlHistory";
 import { ACHIEVEMENTS, useAchievementStore } from "@/engine/achievements";
 import { useDailyLoginStore } from "@/engine/dailyLogin";
+import { useCustomizeStore } from "@/engine/customize/store";
+import SparklineChart from "@/components/ui/SparklineChart";
 import AppTopBar from "@/components/ui/AppTopBar";
 import BottomNav from "@/components/ui/BottomNav";
 
@@ -24,6 +27,8 @@ export default function StatsPage() {
   const walletBalance = useWalletStore((s) => s.balance);
   const unlockedIds = useAchievementStore((s) => s.unlockedIds);
   const dailyStreak = useDailyLoginStore((s) => s.streak);
+  const pnlEntries = usePnLStore((s) => s.entries);
+  const { nickname, setNickname, autoDealDelay, setAutoDealDelay, showProbabilities, setShowProbabilities, animationSpeed, setAnimationSpeed, hapticFeedback, setHapticFeedback } = useCustomizeStore();
 
   const bjAccuracy = bj.totalDecisions > 0
     ? Math.round((bj.correctDecisions / bj.totalDecisions) * 100) : null;
@@ -68,6 +73,36 @@ export default function StatsPage() {
             <div className="flex items-center justify-center gap-2">
               <span className="text-3xl sm:text-4xl font-light tabular-nums">${walletBalance.toLocaleString()}</span>
             </div>
+          </Section>
+
+          {/* ─── Session P&L ─── */}
+          <Section title="Session P&L" delay={0.07}>
+            {pnlEntries.length === 0 ? (
+              <p className="text-xs text-muted text-center">Play some hands to see your P&L chart</p>
+            ) : (() => {
+              const balances = pnlEntries.map((e) => e.balance);
+              const startBal = balances[0];
+              const currentBal = balances[balances.length - 1];
+              const sessionPL = currentBal - startBal;
+              const peak = Math.max(...balances);
+              const low = Math.min(...balances);
+              return (
+                <div className="flex flex-col gap-3">
+                  <div className="rounded-lg border border-border p-2">
+                    <SparklineChart data={balances} height={120} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <StatCard
+                      label="Session P/L"
+                      value={(sessionPL >= 0 ? "+$" : "-$") + Math.abs(sessionPL).toLocaleString()}
+                      color={sessionPL >= 0 ? "text-correct" : "text-accent"}
+                    />
+                    <StatCard label="Peak" value={"$" + peak.toLocaleString()} small />
+                    <StatCard label="Low" value={"$" + low.toLocaleString()} small />
+                  </div>
+                </div>
+              );
+            })()}
           </Section>
 
           {/* ─── Blackjack ─── */}
@@ -202,6 +237,69 @@ export default function StatsPage() {
             </div>
           </Section>
 
+          {/* ─── Settings ─── */}
+          <Section title="Settings" delay={0.28}>
+            <div className="flex flex-col gap-3">
+              {/* Nickname */}
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border">
+                <span className="text-xs text-muted">Nickname</span>
+                <input
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value.slice(0, 16))}
+                  placeholder="Player"
+                  maxLength={16}
+                  className="text-xs font-semibold text-right bg-transparent border-none outline-none w-28 placeholder:text-border"
+                />
+              </div>
+              {/* Auto-deal */}
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border">
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted">Auto-deal</span>
+                  <span className="text-[9px] text-border">Auto next hand after settling</span>
+                </div>
+                <div className="flex gap-1">
+                  {[0, 1, 2, 3].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setAutoDealDelay(s)}
+                      className={`px-2 py-0.5 text-[10px] rounded-full border transition-colors ${
+                        autoDealDelay === s
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border text-muted hover:border-foreground"
+                      }`}
+                    >
+                      {s === 0 ? "Off" : `${s}s`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Show probabilities */}
+              <ToggleRow label="Show win probabilities" hint="BJ action button peek" value={showProbabilities} onChange={setShowProbabilities} />
+              {/* Haptic feedback */}
+              <ToggleRow label="Haptic feedback" hint="Vibration on actions" value={hapticFeedback} onChange={setHapticFeedback} />
+              {/* Animation speed */}
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border">
+                <span className="text-xs text-muted">Animation speed</span>
+                <div className="flex gap-1">
+                  {(["slow", "normal", "fast"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setAnimationSpeed(s)}
+                      className={`px-2 py-0.5 text-[10px] rounded-full border capitalize transition-colors ${
+                        animationSpeed === s
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border text-muted hover:border-foreground"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Section>
+
           {/* Reset */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="flex flex-col gap-2">
             <button
@@ -247,6 +345,23 @@ function StatCard({ label, value, color, small, hint }: { label: string; value: 
       <span className={`${small ? "text-sm sm:text-base" : "text-lg sm:text-xl"} font-semibold tabular-nums leading-none ${color || ""}`}>
         {value}
       </span>
+    </div>
+  );
+}
+
+function ToggleRow({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border">
+      <div className="flex flex-col">
+        <span className="text-xs text-muted">{label}</span>
+        {hint && <span className="text-[9px] text-border">{hint}</span>}
+      </div>
+      <button
+        onClick={() => onChange(!value)}
+        className={`w-10 h-5 rounded-full transition-colors relative ${value ? "bg-correct" : "bg-border"}`}
+      >
+        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${value ? "left-5" : "left-0.5"}`} />
+      </button>
     </div>
   );
 }

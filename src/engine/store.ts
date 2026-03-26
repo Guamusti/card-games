@@ -8,9 +8,11 @@ import { getOptimalAction } from "./strategy";
 import { useWalletStore } from "./wallet";
 import { useStatsStore } from "./stats";
 import { useXPStore } from "./xp";
+import { usePnLStore } from "./pnlHistory";
 
 const DEFAULT_BET = 100;
 const BJ_BET_KEY = "card-trainer-bj-bet";
+const BJ_NUMHANDS_KEY = "card-trainer-bj-numhands";
 
 function loadBet(): number {
   if (typeof window === "undefined") return DEFAULT_BET;
@@ -23,6 +25,22 @@ function loadBet(): number {
 
 function persistBet(bet: number) {
   try { localStorage.setItem(BJ_BET_KEY, JSON.stringify(bet)); } catch { /* ignore */ }
+}
+
+function loadNumHands(): number {
+  if (typeof window === "undefined") return 1;
+  try {
+    const raw = localStorage.getItem(BJ_NUMHANDS_KEY);
+    if (raw) {
+      const n = JSON.parse(raw);
+      if (n === 1 || n === 2 || n === 3) return n;
+    }
+  } catch { /* ignore */ }
+  return 1;
+}
+
+function persistNumHands(n: number) {
+  try { localStorage.setItem(BJ_NUMHANDS_KEY, JSON.stringify(n)); } catch { /* ignore */ }
 }
 
 function getBalance(): number {
@@ -39,6 +57,7 @@ function initialState(): GameState {
     phase: "betting",
     balance,
     currentBet: Math.min(loadBet(), balance),
+    numHands: loadNumHands(),
     lastFeedback: null,
   };
 }
@@ -51,6 +70,7 @@ interface GameActions {
   split: () => void;
   newRound: () => void;
   setBet: (amount: number) => void;
+  setNumHands: (n: number) => void;
   syncBalance: () => void;
   reset: () => void;
 }
@@ -62,6 +82,13 @@ function draw(deck: Card[]): { card: Card; deck: Card[] } {
   return { card, deck: remaining };
 }
 
+function findNextPlayableHand(hands: Hand[], fromIdx: number): number {
+  for (let i = fromIdx; i < hands.length; i++) {
+    if (!hands[i].isStanding && handValue(hands[i].cards) < 21) return i;
+  }
+  return -1;
+}
+
 function checkAndAdvance(state: GameState): GameState {
   const hand = state.hands[state.activeHandIndex];
   if (!hand) return state;
@@ -71,8 +98,8 @@ function checkAndAdvance(state: GameState): GameState {
     const updatedHands = [...state.hands];
     updatedHands[state.activeHandIndex] = { ...hand, isStanding: true };
 
-    const nextIdx = state.activeHandIndex + 1;
-    if (nextIdx < state.hands.length) {
+    const nextIdx = findNextPlayableHand(updatedHands, state.activeHandIndex + 1);
+    if (nextIdx !== -1) {
       return { ...state, hands: updatedHands, activeHandIndex: nextIdx };
     }
     return { ...state, hands: updatedHands, phase: "dealer-turn" };
@@ -133,6 +160,7 @@ function settleHands(state: GameState): GameState {
 
   // Sync wallet
   wallet.setBalance(balance);
+  usePnLStore.getState().recordSnapshot(balance, "bj");
 
   return { ...state, hands, balance, phase: "settled" };
 }
@@ -193,69 +221,121 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (state.phase !== "betting") return;
 
+    const n = state.numHands;
+    const totalBet = state.currentBet * n;
+
     // Sync with wallet
     const walletBalance = getBalance();
-    if (walletBalance < state.currentBet) return;
+    if (walletBalance < totalBet) return;
 
-    let deck = state.deck.length < 20 ? createDeck() : [...state.deck];
+    let deck = state.deck.length < (20 + n * 4) ? createDeck() : [...state.deck];
 
+    // Draw all cards upfront: dealer gets 2, each hand gets 2
     const d1 = draw(deck); deck = d1.deck;
-    const p1 = draw(deck); deck = p1.deck;
     const d2 = draw(deck); deck = d2.deck;
-    const p2 = draw(deck); deck = p2.deck;
 
-    const newBalance = walletBalance - state.currentBet;
+    const playerCards: { c1: Card; c2: Card }[] = [];
+    for (let i = 0; i < n; i++) {
+      const c1 = draw(deck); deck = c1.deck;
+      const c2 = draw(deck); deck = c2.deck;
+      playerCards.push({ c1: c1.card, c2: c2.card });
+    }
+
+    const newBalance = walletBalance - totalBet;
     useWalletStore.getState().setBalance(newBalance);
 
     const DELAY = 350;
+
+    // Create empty hands for the dealing animation
+    const emptyHands: Hand[] = [];
+    for (let i = 0; i < n; i++) {
+      emptyHands.push({ cards: [], bet: state.currentBet, isDoubled: false, isStanding: false });
+    }
 
     set({
       ...state,
       deck,
       dealer: { cards: [], hidden: true },
-      hands: [{ cards: [], bet: state.currentBet, isDoubled: false, isStanding: false }],
+      hands: emptyHands,
       activeHandIndex: 0,
       phase: "dealing" as GamePhase,
       balance: newBalance,
       lastFeedback: null,
     });
 
+    // Dealing order: d1, h1c1, h2c1, h3c1, d2, h1c2, h2c2, h3c2
+    let step = 0;
+
+    // Round 1: dealer card 1
+    step++;
     setTimeout(() => {
       const s = get();
       set({ ...s, dealer: { ...s.dealer, cards: [d1.card] } });
-    }, DELAY);
+    }, DELAY * step);
 
-    setTimeout(() => {
-      const s = get();
-      const hands = [...s.hands];
-      hands[0] = { ...hands[0], cards: [p1.card] };
-      set({ ...s, hands });
-    }, DELAY * 2);
+    // Round 1: each hand card 1
+    for (let i = 0; i < n; i++) {
+      step++;
+      const idx = i;
+      const delay = DELAY * step;
+      setTimeout(() => {
+        const s = get();
+        const hands = [...s.hands];
+        hands[idx] = { ...hands[idx], cards: [playerCards[idx].c1] };
+        set({ ...s, hands });
+      }, delay);
+    }
 
+    // Round 2: dealer card 2
+    step++;
     setTimeout(() => {
       const s = get();
       set({ ...s, dealer: { cards: [d1.card, d2.card], hidden: true } });
-    }, DELAY * 3);
+    }, DELAY * step);
 
+    // Round 2: each hand card 2
+    for (let i = 0; i < n; i++) {
+      step++;
+      const idx = i;
+      const delay = DELAY * step;
+      setTimeout(() => {
+        const s = get();
+        const hands = [...s.hands];
+        hands[idx] = { ...hands[idx], cards: [playerCards[idx].c1, playerCards[idx].c2] };
+        set({ ...s, hands });
+      }, delay);
+    }
+
+    // Final: transition to playing phase
+    step++;
     setTimeout(() => {
       const s = get();
-      const hand: Hand = {
-        cards: [p1.card, p2.card],
+      const finalHands: Hand[] = playerCards.map((pc) => ({
+        cards: [pc.c1, pc.c2],
         bet: state.currentBet,
         isDoubled: false,
         isStanding: false,
-      };
+      }));
 
-      const newState: GameState = { ...s, hands: [hand], phase: "playing" };
+      // Check for blackjacks — mark them as standing
+      let firstPlayableIdx = -1;
+      for (let i = 0; i < finalHands.length; i++) {
+        if (isBlackjack(finalHands[i].cards)) {
+          finalHands[i] = { ...finalHands[i], isStanding: true };
+        } else if (firstPlayableIdx === -1) {
+          firstPlayableIdx = i;
+        }
+      }
 
-      if (isBlackjack(hand.cards)) {
-        set({ ...newState });
+      // If all hands are blackjack, go straight to dealer
+      if (firstPlayableIdx === -1) {
+        set({ ...s, hands: finalHands, activeHandIndex: 0, phase: "playing" });
         playDealerAnimated(set, get);
         return;
       }
 
-      set(newState);
-    }, DELAY * 4);
+      set({ ...s, hands: finalHands, activeHandIndex: firstPlayableIdx, phase: "playing" });
+    }, DELAY * step);
   },
 
   hit: () => {
@@ -299,8 +379,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const hands = [...state.hands];
     hands[state.activeHandIndex] = { ...hands[state.activeHandIndex], isStanding: true };
 
-    const nextIdx = state.activeHandIndex + 1;
-    if (nextIdx < hands.length) {
+    const nextIdx = findNextPlayableHand(hands, state.activeHandIndex + 1);
+    if (nextIdx !== -1) {
       set({ ...state, hands, activeHandIndex: nextIdx, lastFeedback: feedback });
     } else {
       set({ ...state, hands, lastFeedback: feedback, phase: "dealer-turn" });
@@ -328,8 +408,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     let newState: GameState = { ...state, deck, hands, balance: newBalance, lastFeedback: feedback };
 
-    const nextIdx = state.activeHandIndex + 1;
-    if (nextIdx < hands.length) {
+    const nextIdx = findNextPlayableHand(hands, state.activeHandIndex + 1);
+    if (nextIdx !== -1) {
       newState.activeHandIndex = nextIdx;
       set(newState);
     } else {
@@ -379,6 +459,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       deck: state.deck.length < 20 ? createDeck() : state.deck,
       balance,
       currentBet: Math.min(state.currentBet, balance),
+      numHands: state.numHands,
     });
   },
 
@@ -387,6 +468,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const bet = Math.max(10, Math.min(amount, balance));
     set({ currentBet: bet, balance });
     persistBet(bet);
+  },
+
+  setNumHands: (n: number) => {
+    if (n < 1 || n > 3) return;
+    set({ numHands: n });
+    persistNumHands(n);
   },
 
   reset: () => {

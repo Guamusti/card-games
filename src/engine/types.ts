@@ -39,6 +39,7 @@ export interface GameState {
   phase: GamePhase;
   balance: number;
   currentBet: number;
+  numHands: number;
   lastFeedback: StrategyFeedback | null;
 }
 

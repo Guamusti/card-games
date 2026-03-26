@@ -6,10 +6,12 @@ import { canSplit, type Action } from "@/engine/types";
 import { getOptimalAction } from "@/engine/strategy";
 import { getBJActionProbabilities, type BJActionProbs } from "@/engine/bjProbability";
 import { useHaptic } from "@/hooks/useHaptic";
+import { useCustomizeStore } from "@/engine/customize/store";
 
 export default function ActionBar() {
   const { phase, hands, activeHandIndex, dealer, hit, stand, double, split, deal, newRound } =
     useGameStore();
+  const showProbabilities = useCustomizeStore((s) => s.showProbabilities);
 
   // Compute these every render so hooks are always called in the same order
   const hand = phase === "playing" ? hands[activeHandIndex] : null;
@@ -58,10 +60,10 @@ export default function ActionBar() {
 
   return (
     <div className="flex justify-center gap-2 sm:gap-3 w-full px-4">
-      <ActionButton label="Hit" action="hit" onClick={hit} optimal={optimal} probs={probs} />
-      <ActionButton label="Stand" action="stand" onClick={stand} optimal={optimal} probs={probs} />
-      <ActionButton label="Double" action="double" onClick={double} disabled={!canDbl} optimal={optimal} probs={probs} />
-      <ActionButton label="Split" action="split" onClick={split} disabled={!canSpl} optimal={optimal} probs={probs} />
+      <ActionButton label="Hit" action="hit" onClick={hit} optimal={optimal} probs={showProbabilities ? probs : null} />
+      <ActionButton label="Stand" action="stand" onClick={stand} optimal={optimal} probs={showProbabilities ? probs : null} />
+      <ActionButton label="Double" action="double" onClick={double} disabled={!canDbl} optimal={optimal} probs={showProbabilities ? probs : null} />
+      <ActionButton label="Split" action="split" onClick={split} disabled={!canSpl} optimal={optimal} probs={showProbabilities ? probs : null} />
     </div>
   );
 }

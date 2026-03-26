@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useGameStore } from "@/engine/store";
 import { useKeyboard } from "@/hooks/useKeyboard";
 import TopBar from "./ui/TopBar";
@@ -23,8 +24,16 @@ const FELT_COLORS: Record<string, string | undefined> = {
 export default function GameTable() {
   useKeyboard();
 
-  const { dealer, hands, activeHandIndex, phase } = useGameStore();
+  const { dealer, hands, activeHandIndex, phase, numHands, newRound } = useGameStore();
   const tableFelt = useCustomizeStore((s) => s.tableFelt);
+  const autoDealDelay = useCustomizeStore((s) => s.autoDealDelay);
+
+  // Auto-deal: start next round after settling
+  useEffect(() => {
+    if (phase !== "settled" || autoDealDelay <= 0) return;
+    const timer = setTimeout(() => newRound(), autoDealDelay * 1000);
+    return () => clearTimeout(timer);
+  }, [phase, autoDealDelay, newRound]);
 
   const showTable = phase !== "betting";
   const feltBg = FELT_COLORS[tableFelt];
@@ -59,15 +68,29 @@ export default function GameTable() {
             <Feedback />
 
             {/* Player hands */}
-            <div className="flex gap-4 sm:gap-8">
-              {hands.map((hand, i) => (
-                <Hand
-                  key={i}
-                  hand={hand}
-                  isActive={phase === "playing" && i === activeHandIndex}
-                  label={hands.length > 1 ? `Hand ${i + 1}` : "You"}
-                />
-              ))}
+            <div className={`flex gap-3 sm:gap-6 ${hands.length > 2 ? "flex-wrap justify-center" : ""}`}>
+              {hands.map((hand, i) => {
+                const isActive = phase === "playing" && i === activeHandIndex;
+                const showMultiLabel = hands.length > 1;
+                return (
+                  <div
+                    key={i}
+                    className={`flex flex-col items-center rounded-xl px-2 py-2 sm:px-3 sm:py-2.5 transition-all duration-300 ${
+                      isActive
+                        ? "ring-1 ring-foreground/30 bg-foreground/[0.04]"
+                        : showMultiLabel
+                        ? "ring-1 ring-transparent"
+                        : ""
+                    }`}
+                  >
+                    <Hand
+                      hand={hand}
+                      isActive={isActive}
+                      label={showMultiLabel ? `Hand ${i + 1}` : "You"}
+                    />
+                  </div>
+                );
+              })}
             </div>
 
             {/* Actions */}

@@ -46,6 +46,10 @@ export interface CustomizeState {
   hapticFeedback: boolean;
   suitColors: SuitColorScheme;
   playerAvatar: PlayerAvatar;
+  // Gameplay preferences
+  nickname: string;
+  autoDealDelay: number; // 0 = off, 1-5 seconds
+  showProbabilities: boolean;
   // Owned items
   ownedAvatars: PlayerAvatar[];
   ownedCardBacks: CardBack[];
@@ -63,6 +67,9 @@ interface CustomizeActions {
   setHapticFeedback: (on: boolean) => void;
   setSuitColors: (scheme: SuitColorScheme) => void;
   setPlayerAvatar: (avatar: PlayerAvatar) => void;
+  setNickname: (name: string) => void;
+  setAutoDealDelay: (seconds: number) => void;
+  setShowProbabilities: (show: boolean) => void;
   // Purchase actions
   unlockAvatar: (avatar: PlayerAvatar) => void;
   unlockCardBack: (back: CardBack) => void;
@@ -101,6 +108,9 @@ const defaults: CustomizeState = {
   hapticFeedback: true,
   suitColors: "classic",
   playerAvatar: "🐶",
+  nickname: "",
+  autoDealDelay: 0,
+  showProbabilities: true,
   ownedAvatars: [...FREE_AVATARS],
   ownedCardBacks: [...FREE_CARD_BACKS],
   ownedTableFelts: [...FREE_TABLE_FELTS],
@@ -155,6 +165,18 @@ export const useCustomizeStore = create<CustomizeStore>((set, get) => {
     setPlayerAvatar: (playerAvatar) => {
       set({ playerAvatar });
       saveState({ ...get(), playerAvatar });
+    },
+    setNickname: (nickname) => {
+      set({ nickname });
+      saveState({ ...get(), nickname });
+    },
+    setAutoDealDelay: (autoDealDelay) => {
+      set({ autoDealDelay });
+      saveState({ ...get(), autoDealDelay });
+    },
+    setShowProbabilities: (showProbabilities) => {
+      set({ showProbabilities });
+      saveState({ ...get(), showProbabilities });
     },
     unlockAvatar: (avatar) => {
       const owned = [...get().ownedAvatars, avatar];

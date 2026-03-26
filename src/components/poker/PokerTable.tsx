@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import { usePokerStore } from "@/engine/poker/store";
+import { useTournamentStore } from "@/engine/poker/tournament";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import { useCustomizeStore } from "@/engine/customize/store";
 import { useXPStore } from "@/engine/xp";
@@ -32,6 +33,14 @@ export default function PokerTable() {
   const tableFelt = useCustomizeStore((s) => s.tableFelt);
   const feltBg = FELT_COLORS[tableFelt];
 
+  // Tournament state
+  const isTournament = useTournamentStore((s) => s.isTournament);
+  const tournamentLevel = useTournamentStore((s) => s.currentLevel);
+  const tournamentHandsAtLevel = useTournamentStore((s) => s.handsAtLevel);
+  const tournamentPlayersRemaining = useTournamentStore((s) => s.playersRemaining);
+  const tournamentTotalPlayers = useTournamentStore((s) => s.totalPlayers);
+  const tournamentBlinds = useTournamentStore((s) => s.blindLevels);
+
   const playerIdx = players.findIndex((p) => p.isHuman);
   const player = players[playerIdx];
   const aiPlayers = players.filter((p) => !p.isHuman);
@@ -42,6 +51,32 @@ export default function PokerTable() {
   const revealedCount = phase === "preflop" || phase === "dealing" ? 0 : phase === "flop" ? 3 : phase === "turn" ? 4 : 5;
   const visibleCommunity = community.slice(0, revealedCount);
 
+  // Current blind level info for tournament banner
+  const currentBlindLevel = isTournament ? tournamentBlinds[tournamentLevel] : null;
+  const handsUntilNext = currentBlindLevel ? currentBlindLevel.duration - tournamentHandsAtLevel : 0;
+
+  const handleStartTournament = () => {
+    const store = usePokerStore.getState();
+    // Set up tournament blinds (level 0: 10/20)
+    const tStore = useTournamentStore.getState();
+    const playerNames = [
+      { id: "player", name: "You" },
+      ...store.players.filter((p) => !p.isHuman).map((p) => ({ id: p.id, name: p.name })),
+    ];
+    tStore.startTournament(playerNames);
+
+    // Set poker store blinds to tournament level 0
+    const blinds = tStore.getCurrentBlinds();
+    store.setBlinds(blinds.small, blinds.big);
+  };
+
+  const handleLeaveTable = () => {
+    if (isTournament) {
+      useTournamentStore.getState().endTournament();
+    }
+    leaveTable();
+  };
+
   return (
     <div
       className="relative flex flex-col min-h-[100dvh] overflow-y-auto"
@@ -51,7 +86,7 @@ export default function PokerTable() {
       <div className="flex items-center justify-between px-4 sm:px-6 py-2.5 sm:py-3 border-b border-border safe-top">
         <Link
           href="/"
-          onClick={showTable ? leaveTable : undefined}
+          onClick={showTable ? handleLeaveTable : undefined}
           className="flex items-center gap-1.5 text-muted hover:text-foreground transition-colors group"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:scale-110 transition-transform">
@@ -61,15 +96,17 @@ export default function PokerTable() {
         </Link>
         <div className="flex items-center gap-2.5 sm:gap-3.5 text-sm sm:text-base tabular-nums">
           <div className="flex items-center gap-1">
-            <span className="text-amber-500 text-xs">●</span>
+            <span className="text-amber-500 text-xs">{"\u25CF"}</span>
             <span className="text-foreground font-medium">
               {showTable ? player.chips.toLocaleString() : walletBalance.toLocaleString()}
             </span>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="text-blue-500 text-xs">◆</span>
-            <span className="text-foreground font-medium">{gems}</span>
-          </div>
+          {!isTournament && (
+            <div className="flex items-center gap-1">
+              <span className="text-blue-500 text-xs">{"\u25C6"}</span>
+              <span className="text-foreground font-medium">{gems}</span>
+            </div>
+          )}
           <span className="text-muted text-sm">
             {smallBlind}/{bigBlind}
           </span>
@@ -88,9 +125,32 @@ export default function PokerTable() {
         </div>
       </div>
 
+      {/* Tournament banner */}
+      {isTournament && showTable && currentBlindLevel && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-center gap-3 px-4 py-1.5 bg-foreground/5 border-b border-border text-xs sm:text-sm"
+        >
+          <span className="font-semibold text-foreground">Tournament</span>
+          <span className="text-muted">{"\u2014"}</span>
+          <span className="text-foreground tabular-nums">
+            Level {tournamentLevel + 1} ({currentBlindLevel.small}/{currentBlindLevel.big})
+          </span>
+          <span className="text-muted">{"\u2014"}</span>
+          <span className="text-muted tabular-nums">
+            {tournamentPlayersRemaining}/{tournamentTotalPlayers} players
+          </span>
+          <span className="text-muted">{"\u2014"}</span>
+          <span className="text-muted tabular-nums">
+            {handsUntilNext} hands to next level
+          </span>
+        </motion.div>
+      )}
+
       <main className="flex-1 flex flex-col items-center px-3 py-3 sm:py-6 gap-3 sm:gap-4">
         {!showTable ? (
-          /* ─── Lobby ─── */
+          /* --- Lobby --- */
           <div className="flex-1 flex flex-col items-center justify-center gap-5">
             <h1 className="text-2xl sm:text-3xl font-light tracking-tight">
               Texas Hold&apos;em
@@ -134,12 +194,27 @@ export default function PokerTable() {
               Buy-in: <span className="text-foreground font-semibold">${Math.min(bigBlind * 100, walletBalance).toLocaleString()}</span>
               <span className="text-muted/60"> / ${walletBalance.toLocaleString()} balance</span>
             </p>
+
+            {/* Tournament button */}
+            <div className="flex flex-col items-center gap-2 mt-1">
+              <span className="text-[10px] sm:text-xs text-muted uppercase tracking-widest">Or</span>
+              <button
+                onClick={handleStartTournament}
+                className="flex flex-col items-center gap-0.5 px-6 py-3 rounded-lg border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all duration-150"
+              >
+                <span className="text-sm sm:text-base font-semibold uppercase tracking-widest">Tournament</span>
+                <span className="text-[9px] sm:text-[10px] text-inherit opacity-60">
+                  1,500 chips {"\u00B7"} 6 players {"\u00B7"} rising blinds
+                </span>
+              </button>
+            </div>
+
             <PokerActionBar />
             <HandRankings />
           </div>
         ) : (
           <>
-            {/* ─── Opponents row ─── */}
+            {/* --- Opponents row --- */}
             <div className="flex justify-around w-full pt-1">
               {aiPlayers.map((ai) => (
                 <PlayerSeat
@@ -156,7 +231,7 @@ export default function PokerTable() {
             {/* Spacer to push community cards toward center */}
             <div className="flex-1" />
 
-            {/* ─── Community cards ─── */}
+            {/* --- Community cards --- */}
             <div className="flex flex-col items-center gap-1.5">
               <CommunityCards cards={community} phase={phase} />
               {pot > 0 && (
@@ -166,7 +241,7 @@ export default function PokerTable() {
               )}
             </div>
 
-            {/* ─── Player area (bottom) ─── */}
+            {/* --- Player area (bottom) --- */}
             <div className="flex flex-col items-center gap-2 w-full mt-auto">
               {/* Action bar */}
               <PokerActionBar />
@@ -207,7 +282,11 @@ export default function PokerTable() {
       </main>
 
       <footer className="py-2 sm:py-3 text-center text-[10px] sm:text-xs text-muted border-t border-border safe-bottom">
-        Texas Hold&apos;em &middot; 6 Players &middot; No Limit
+        {isTournament ? (
+          <>Tournament {"\u00B7"} {tournamentPlayersRemaining} Players {"\u00B7"} No Limit</>
+        ) : (
+          <>Texas Hold&apos;em {"\u00B7"} 6 Players {"\u00B7"} No Limit</>
+        )}
       </footer>
     </div>
   );

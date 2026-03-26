@@ -10,7 +10,7 @@ export default function BetSelector() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const { currentBet, setBet } = useGameStore();
+  const { currentBet, setBet, numHands, setNumHands } = useGameStore();
   const { balance, rebuy } = useWalletStore();
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -132,6 +132,36 @@ export default function BetSelector() {
           All in
         </button>
       </div>
+
+      {/* Hand count selector */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] sm:text-xs text-muted uppercase tracking-widest">Hands</span>
+        <div className="flex gap-1.5">
+          {([1, 2, 3] as const).map((n) => (
+            <button
+              key={n}
+              onClick={() => setNumHands(n)}
+              disabled={currentBet * n > balance}
+              className={`px-2.5 py-1 text-xs tabular-nums rounded-full border transition-colors ${
+                numHands === n
+                  ? "border-foreground bg-foreground text-background"
+                  : currentBet * n > balance
+                  ? "border-border text-border cursor-not-allowed"
+                  : "border-border text-muted hover:border-foreground hover:text-foreground"
+              }`}
+            >
+              {n}x
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Total bet indicator for multi-hand */}
+      {numHands > 1 && (
+        <p className="text-[10px] sm:text-xs text-muted tabular-nums">
+          Total: ${currentBet * numHands}
+        </p>
+      )}
     </div>
   );
 }
