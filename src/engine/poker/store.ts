@@ -494,6 +494,7 @@ function scheduleAIAction(
     const revealedCount = state.phase === "preflop" ? 0 : state.phase === "flop" ? 3 : state.phase === "turn" ? 4 : 5;
     const visibleCommunity = state.community.slice(0, revealedCount);
 
+    const difficulty = loadCustomize().aiDifficulty;
     const decision = getAIAction({
       holeCards: activePlayer.cards,
       community: visibleCommunity,
@@ -502,7 +503,7 @@ function scheduleAIAction(
       chips: activePlayer.chips,
       phase: state.phase,
       bigBlind: state.bigBlind,
-    });
+    }, difficulty);
 
     let newState: PokerState;
     if (decision.action === "fold") {

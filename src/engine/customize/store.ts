@@ -37,6 +37,8 @@ export const TABLE_FELT_PRICE = 2500;
 export const ACCENT_COLOR_PRICE = 1500;
 export const SUIT_COLOR_PRICE = 2000;
 
+export type AIDifficulty = "easy" | "normal" | "hard";
+
 export interface CustomizeState {
   cardBack: CardBack;
   accentColor: AccentColor;
@@ -50,6 +52,7 @@ export interface CustomizeState {
   nickname: string;
   autoDealDelay: number; // 0 = off, 1-5 seconds
   showProbabilities: boolean;
+  aiDifficulty: AIDifficulty;
   // Owned items
   ownedAvatars: PlayerAvatar[];
   ownedCardBacks: CardBack[];
@@ -70,6 +73,7 @@ interface CustomizeActions {
   setNickname: (name: string) => void;
   setAutoDealDelay: (seconds: number) => void;
   setShowProbabilities: (show: boolean) => void;
+  setAiDifficulty: (d: AIDifficulty) => void;
   // Purchase actions
   unlockAvatar: (avatar: PlayerAvatar) => void;
   unlockCardBack: (back: CardBack) => void;
@@ -111,6 +115,7 @@ const defaults: CustomizeState = {
   nickname: "",
   autoDealDelay: 0,
   showProbabilities: true,
+  aiDifficulty: "normal",
   ownedAvatars: [...FREE_AVATARS],
   ownedCardBacks: [...FREE_CARD_BACKS],
   ownedTableFelts: [...FREE_TABLE_FELTS],
@@ -177,6 +182,10 @@ export const useCustomizeStore = create<CustomizeStore>((set, get) => {
     setShowProbabilities: (showProbabilities) => {
       set({ showProbabilities });
       saveState({ ...get(), showProbabilities });
+    },
+    setAiDifficulty: (aiDifficulty) => {
+      set({ aiDifficulty });
+      saveState({ ...get(), aiDifficulty });
     },
     unlockAvatar: (avatar) => {
       const owned = [...get().ownedAvatars, avatar];
