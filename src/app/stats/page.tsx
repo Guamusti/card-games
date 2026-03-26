@@ -59,47 +59,31 @@ export default function StatsPage() {
           </div>
         ) : (
         <div className="max-w-lg mx-auto flex flex-col gap-8 sm:gap-10">
-          {/* Title */}
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-1">
-            <h1 className="text-2xl sm:text-3xl font-light tracking-tight">Statistics</h1>
-          </motion.div>
-
-          {/* ─── Bankroll ─── */}
-          <Section title="Bankroll" delay={0.05}>
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-3xl sm:text-4xl font-light tabular-nums">${walletBalance.toLocaleString()}</span>
-            </div>
-          </Section>
-
-          {/* ─── Session P&L ─── */}
-          <Section title="Session P&L" delay={0.07}>
-            {pnlEntries.length === 0 ? (
-              <p className="text-xs text-muted text-center">Play some hands to see your P&L chart</p>
-            ) : (() => {
-              const balances = pnlEntries.map((e) => e.balance);
-              const startBal = balances[0];
-              const currentBal = balances[balances.length - 1];
-              const sessionPL = currentBal - startBal;
-              const peak = Math.max(...balances);
-              const low = Math.min(...balances);
-              return (
-                <div className="flex flex-col gap-3">
-                  <div className="rounded-lg border border-border p-2">
-                    <SparklineChart data={balances} height={120} />
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <StatCard
-                      label="Session P/L"
-                      value={(sessionPL >= 0 ? "+$" : "-$") + Math.abs(sessionPL).toLocaleString()}
-                      color={sessionPL >= 0 ? "text-correct" : "text-accent"}
-                    />
-                    <StatCard label="Peak" value={"$" + peak.toLocaleString()} small />
-                    <StatCard label="Low" value={"$" + low.toLocaleString()} small />
-                  </div>
+          {/* ─── Portfolio Hero (Robinhood style) ─── */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            className="flex flex-col"
+          >
+            {pnlEntries.length >= 2 ? (
+              <PnLHero entries={pnlEntries} currentBalance={walletBalance} />
+            ) : (
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] uppercase tracking-widest text-muted font-medium">Portfolio</span>
+                <span className="text-3xl sm:text-4xl font-semibold tabular-nums tracking-tight">
+                  ${walletBalance.toLocaleString()}
+                </span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm text-muted">$0.00</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted/10 text-muted font-medium">0.0%</span>
                 </div>
-              );
-            })()}
-          </Section>
+                <div className="h-[140px] flex items-center justify-center border border-dashed border-border rounded-xl mt-3">
+                  <span className="text-xs text-muted">Play some hands to see your chart</span>
+                </div>
+              </div>
+            )}
+          </motion.div>
 
           {/* ─── Blackjack ─── */}
           <Section title="Blackjack" delay={0.1}>
@@ -278,6 +262,69 @@ function StatCard({ label, value, color, small, hint }: { label: string; value: 
       <span className={`${small ? "text-sm sm:text-base" : "text-lg sm:text-xl"} font-semibold tabular-nums leading-none ${color || ""}`}>
         {value}
       </span>
+    </div>
+  );
+}
+
+type TimeFilter = "all" | "50" | "20";
+
+function PnLHero({ entries, currentBalance }: { entries: { timestamp: number; balance: number; game: string }[]; currentBalance: number }) {
+  const [filter, setFilter] = useState<TimeFilter>("all");
+
+  const allBalances = entries.map((e) => e.balance);
+  const filtered = filter === "all" ? allBalances : allBalances.slice(-parseInt(filter));
+  const chartData = filtered.length >= 2 ? filtered : allBalances;
+
+  const startBal = chartData[0];
+  const endBal = currentBalance;
+  const peak = Math.max(...chartData);
+  const low = Math.min(...chartData);
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[10px] uppercase tracking-widest text-muted font-medium px-1">Portfolio</span>
+
+      {/* Interactive chart with balance hero built-in */}
+      <SparklineChart data={chartData} height={160} />
+
+      {/* Time filter pills */}
+      <div className="flex items-center gap-1.5 mt-2 px-1">
+        {([
+          { id: "20" as TimeFilter, label: "Last 20" },
+          { id: "50" as TimeFilter, label: "Last 50" },
+          { id: "all" as TimeFilter, label: "All" },
+        ]).map((f) => (
+          <button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            className={`px-3 py-1 text-[10px] sm:text-xs font-medium rounded-full transition-colors ${
+              filter === f.id
+                ? "bg-foreground text-background"
+                : "text-muted hover:text-foreground"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+        <div className="flex-1" />
+        <span className="text-[10px] text-muted tabular-nums">{chartData.length} hands</span>
+      </div>
+
+      {/* Key stats row */}
+      <div className="grid grid-cols-3 gap-2 mt-3">
+        <div className="flex flex-col items-center gap-0.5 p-2 rounded-lg border border-border">
+          <span className="text-[9px] text-muted uppercase tracking-wider">High</span>
+          <span className="text-sm font-semibold tabular-nums text-correct">${peak.toLocaleString()}</span>
+        </div>
+        <div className="flex flex-col items-center gap-0.5 p-2 rounded-lg border border-border">
+          <span className="text-[9px] text-muted uppercase tracking-wider">Low</span>
+          <span className="text-sm font-semibold tabular-nums text-accent">${low.toLocaleString()}</span>
+        </div>
+        <div className="flex flex-col items-center gap-0.5 p-2 rounded-lg border border-border">
+          <span className="text-[9px] text-muted uppercase tracking-wider">Start</span>
+          <span className="text-sm font-semibold tabular-nums">${startBal.toLocaleString()}</span>
+        </div>
+      </div>
     </div>
   );
 }
