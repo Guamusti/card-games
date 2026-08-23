@@ -41,8 +41,8 @@ interface LanceRuntime {
   passesInRow: number;
   /** Players on the responding team who defer the live envite to their partner. */
   responsePassedSeats: number[];
-  /** A declined envite is paid immediately and must not be counted again at recuento. */
-  settled: boolean;
+  /** Stake already awarded for a declined envite; remaining tantos wait for recuento. */
+  earlyPoints: number;
   outcome: LanceOutcome | null;
   contested: boolean;
   isPunto: boolean;       // for the juego slot when nobody has juego
@@ -213,7 +213,7 @@ function setupLance(lance: Lance, players: MusPlayer[], manoSeat: number, reyes8
     bet: { chain: [], envidoTeam: null, isOrdago: false },
     passesInRow: 0,
     responsePassedSeats: [],
-    settled: false,
+    earlyPoints: 0,
     outcome: null,
     contested,
     isPunto,
@@ -632,10 +632,10 @@ export const useMusStore = create<MusStore>((set, get) => {
     });
     recordLance(lance, rt, rt.outcome);
 
-    // Any lance already decided without a showdown is awarded straight away.
-    // A wanted envite still waits for the final hand comparison.
-    if (rt.outcome?.kind === "paso" || rt.outcome?.kind === "noquiero" || rt.outcome?.kind === "ordago-noquiero") {
-      settleResolvedLance(lance, rt);
+    // The "no quiero" stake is visible immediately. Any extra tantos are
+    // deliberately kept for the end-of-hand recuento with the other lances.
+    if (rt.outcome?.kind === "noquiero" || rt.outcome?.kind === "ordago-noquiero") {
+      awardDeclinedStake(lance, rt);
     }
 
     // Órdago accepted → straight to showdown, decides the vaca.
@@ -651,19 +651,18 @@ export const useMusStore = create<MusStore>((set, get) => {
     set({ lances: { ...s.lances, [lance]: { ...rt, outcome } } });
   }
 
-  function settleResolvedLance(lance: Lance, rt: LanceRuntime) {
+  function awardDeclinedStake(lance: Lance, rt: LanceRuntime) {
     const s = get();
-    if (!rt.outcome || rt.settled) return;
-    const participants = rt.order.map((seat) => evalsFor(s.players, s.config.reyes8)[seat]);
-    const result = scoreLance(lance, rt.outcome, participants, manoOrder(s.manoSeat), rt.isPunto);
+    if (!rt.outcome || (rt.earlyPoints ?? 0) > 0) return;
+    const points = rt.outcome.kind === "ordago-noquiero" ? 1 : rt.outcome.payout;
+    const team = rt.outcome.envidoTeam;
     const score = { ...s.score };
-    if (result.winnerTeam) score[result.winnerTeam] += result.points;
+    score[team] += points;
 
     set({
-      lances: { ...s.lances, [lance]: { ...rt, settled: true } },
+      lances: { ...s.lances, [lance]: { ...rt, earlyPoints: points } },
       score,
-      handScores: [...s.handScores, result],
-      message: result.detail,
+      message: `No querido (+${points})`,
     });
   }
 
@@ -683,7 +682,7 @@ export const useMusStore = create<MusStore>((set, get) => {
     const allEvals = evalsFor(s.players, reyes8);
     const order = manoOrder(s.manoSeat);
 
-    const scores: LanceScore[] = [...s.handScores];
+    const scores: LanceScore[] = [];
     let a = s.score.A;
     let b = s.score.B;
     let winnerTeam: Team | null = null;
@@ -701,12 +700,13 @@ export const useMusStore = create<MusStore>((set, get) => {
     } else {
       for (const lance of LANCES) {
         const rt = s.lances[lance];
-        if (!rt || !rt.outcome || rt.settled) continue;
+        if (!rt || !rt.outcome) continue;
         const parts = rt.order.map((seat) => allEvals[seat]);
         const ls = scoreLance(lance, rt.outcome, parts, order, rt.isPunto);
         scores.push(ls);
-        if (ls.winnerTeam === "A") a += ls.points;
-        else if (ls.winnerTeam === "B") b += ls.points;
+        const pendingPoints = Math.max(0, ls.points - (rt.earlyPoints ?? 0));
+        if (ls.winnerTeam === "A") a += pendingPoints;
+        else if (ls.winnerTeam === "B") b += pendingPoints;
         // Reaching the target mid-count wins the vaca immediately.
         if (a >= s.config.vacaPoints) { ordagoVaca = "A"; break; }
         if (b >= s.config.vacaPoints) { ordagoVaca = "B"; break; }
