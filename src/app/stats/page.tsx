@@ -12,6 +12,7 @@ import SparklineChart from "@/components/ui/SparklineChart";
 import AppTopBar from "@/components/ui/AppTopBar";
 import BottomNav from "@/components/ui/BottomNav";
 import { useCustomizeStore } from "@/engine/customize/store";
+import { activateSocial, subscribeSocial } from "@/engine/mus/social";
 
 function pct(num: number, den: number): string {
   if (den === 0) return "—";
@@ -29,6 +30,8 @@ export default function StatsPage() {
   const pnlEntries = usePnLStore((s) => s.entries);
   const { username, setUsername, friends, addFriend, removeFriend } = useCustomizeStore();
   const [friendName, setFriendName] = useState("");
+  const [onlineFriends, setOnlineFriends] = useState<Set<string>>(new Set());
+  useEffect(() => { if (username) void activateSocial(username); return subscribeSocial((online) => setOnlineFriends(online)); }, [username]);
   const bjAccuracy = bj.totalDecisions > 0
     ? Math.round((bj.correctDecisions / bj.totalDecisions) * 100) : null;
   const bjWinRate = bj.handsPlayed > 0
@@ -67,7 +70,7 @@ export default function StatsPage() {
               <label className="text-xs text-muted">Tu usuario de Mus</label>
               <input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 16))} placeholder="tu_usuario" className="rounded-lg border border-border px-3 py-2 text-sm bg-transparent outline-none" />
               <div className="flex gap-2 pt-1"><input value={friendName} onChange={(e) => setFriendName(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 16))} placeholder="Añadir por usuario" className="min-w-0 flex-1 rounded-lg border border-border px-3 py-2 text-sm bg-transparent outline-none" /><button onClick={() => { addFriend(friendName); setFriendName(""); }} className="rounded-lg bg-foreground px-3 text-xs text-background">Añadir</button></div>
-              {friends.length === 0 ? <span className="text-xs text-muted">Aún no tienes amigos.</span> : friends.map((friend) => <div key={friend} className="flex items-center gap-2 text-sm py-1"><span className="h-2 w-2 rounded-full bg-muted" /><span className="flex-1">@{friend}</span><span className="text-[10px] text-muted">Offline</span><button onClick={() => removeFriend(friend)} className="text-muted">×</button></div>)}
+              {friends.length === 0 ? <span className="text-xs text-muted">Aún no tienes amigos.</span> : friends.map((friend) => { const isOnline = onlineFriends.has(friend); return <div key={friend} className="flex items-center gap-2 text-sm py-1"><span className={`h-2 w-2 rounded-full ${isOnline ? "bg-correct" : "bg-muted"}`} /><span className="flex-1">@{friend}</span><span className="text-[10px] text-muted">{isOnline ? "Online" : "Offline"}</span><button onClick={() => removeFriend(friend)} className="text-muted">×</button></div>; })}
             </div>
           </Section>
           {/* ─── Portfolio Hero (Robinhood style) ─── */}

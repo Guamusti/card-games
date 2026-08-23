@@ -6,11 +6,14 @@ import { getMusRoom, resetMusRoom, type RoomMode, type LobbyState } from "@/engi
 import { useCustomizeStore } from "@/engine/customize/store";
 import type { VacaPoints, BestOf, MusDifficulty } from "@/engine/mus/types";
 import { DEFAULT_MUS_CONFIG } from "@/engine/mus/types";
+import { activateSocial, sendRoomInvite, subscribeSocial, type RoomInvite } from "@/engine/mus/social";
 
 type View = "choose" | "config" | "join" | "lobby";
 
 export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; onStarted: () => void; onExit: () => void }) {
-  const { nickname, aiDifficulty } = useCustomizeStore();
+  const { nickname, aiDifficulty, username, friends } = useCustomizeStore();
+  const [onlineFriends, setOnlineFriends] = useState<Set<string>>(new Set());
+  const [incomingInvite, setIncomingInvite] = useState<RoomInvite | null>(null);
   const [view, setView] = useState<View>("choose");
   const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +34,8 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
     room.onError = (m) => setError(m);
     return () => { room.onLobby = null; room.onStart = null; room.onError = null; };
   }, [onStarted]);
+
+  useEffect(() => { if (username) void activateSocial(username); return subscribeSocial((online, invite) => { setOnlineFriends(online); if (invite) setIncomingInvite(invite); }); }, [username]);
 
   const doHost = async () => {
     setBusy(true); setError(null);
@@ -65,6 +70,7 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
       </div>
 
       {error && <p className="text-xs text-accent text-center">{error}</p>}
+      {incomingInvite && view === "choose" && <div className="rounded-xl border border-correct/40 bg-correct/5 p-3 flex flex-col gap-2"><span className="text-sm">@{incomingInvite.from} te invita a jugar</span><div className="flex gap-2"><button onClick={() => { setCode(incomingInvite.code); setView("join"); setIncomingInvite(null); }} className="btn-primary flex-1">Aceptar</button><button onClick={() => setIncomingInvite(null)} className="btn-ghost flex-1">Ahora no</button></div></div>}
 
       {view === "choose" && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-3">
@@ -120,6 +126,13 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
               </p>
             )}
           </div>
+
+          {lobby.isHost && (
+            <div className="flex flex-col gap-2 rounded-xl border border-border p-3">
+              <span className="text-[10px] uppercase tracking-widest text-muted">Amigos online</span>
+              {!username ? <span className="text-xs text-muted">Configura tu usuario en Perfil para invitar.</span> : friends.filter((friend) => onlineFriends.has(friend)).length === 0 ? <span className="text-xs text-muted">No hay amigos conectados.</span> : friends.filter((friend) => onlineFriends.has(friend)).map((friend) => <div key={friend} className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-correct" /><span className="flex-1 text-sm">@{friend}</span><button onClick={() => sendRoomInvite(friend, { from: username, code: lobby.code, mode: lobby.mode })} className="rounded-lg border border-foreground px-2 py-1 text-xs">Invitar</button></div>)}
+            </div>
+          )}
 
           {lobby.isHost ? (
             <button onClick={() => getMusRoom().startGame()} className="btn-primary">Empezar partida</button>
