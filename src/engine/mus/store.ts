@@ -41,6 +41,8 @@ interface LanceRuntime {
   passesInRow: number;
   /** Players on the responding team who defer the live envite to their partner. */
   responsePassedSeats: number[];
+  /** A declined envite is paid immediately and must not be counted again at recuento. */
+  settled: boolean;
   outcome: LanceOutcome | null;
   contested: boolean;
   isPunto: boolean;       // for the juego slot when nobody has juego
@@ -211,6 +213,7 @@ function setupLance(lance: Lance, players: MusPlayer[], manoSeat: number, reyes8
     bet: { chain: [], envidoTeam: null, isOrdago: false },
     passesInRow: 0,
     responsePassedSeats: [],
+    settled: false,
     outcome: null,
     contested,
     isPunto,
@@ -629,6 +632,12 @@ export const useMusStore = create<MusStore>((set, get) => {
     });
     recordLance(lance, rt, rt.outcome);
 
+    // A declined envite is awarded straight away, as it is at a real table.
+    // Played lances still wait for the end-of-hand recuento.
+    if (rt.outcome?.kind === "noquiero" || rt.outcome?.kind === "ordago-noquiero") {
+      settleDeclinedEnvite(lance, rt);
+    }
+
     // Órdago accepted → straight to showdown, decides the vaca.
     if (rt.outcome?.kind === "ordago-quiero") {
       schedule(() => goShowdown(lance), 600);
@@ -640,6 +649,22 @@ export const useMusStore = create<MusStore>((set, get) => {
   function recordLance(lance: Lance, rt: LanceRuntime, outcome: LanceOutcome | null) {
     const s = get();
     set({ lances: { ...s.lances, [lance]: { ...rt, outcome } } });
+  }
+
+  function settleDeclinedEnvite(lance: Lance, rt: LanceRuntime) {
+    const s = get();
+    if (!rt.outcome || rt.settled) return;
+    const participants = rt.order.map((seat) => evalsFor(s.players, s.config.reyes8)[seat]);
+    const result = scoreLance(lance, rt.outcome, participants, manoOrder(s.manoSeat), rt.isPunto);
+    const score = { ...s.score };
+    if (result.winnerTeam) score[result.winnerTeam] += result.points;
+
+    set({
+      lances: { ...s.lances, [lance]: { ...rt, settled: true } },
+      score,
+      handScores: [...s.handScores, result],
+      message: result.detail,
+    });
   }
 
   function advanceLance(lance: Lance) {
@@ -658,7 +683,7 @@ export const useMusStore = create<MusStore>((set, get) => {
     const allEvals = evalsFor(s.players, reyes8);
     const order = manoOrder(s.manoSeat);
 
-    const scores: LanceScore[] = [];
+    const scores: LanceScore[] = [...s.handScores];
     let a = s.score.A;
     let b = s.score.B;
     let winnerTeam: Team | null = null;
@@ -676,7 +701,7 @@ export const useMusStore = create<MusStore>((set, get) => {
     } else {
       for (const lance of LANCES) {
         const rt = s.lances[lance];
-        if (!rt || !rt.outcome) continue;
+        if (!rt || !rt.outcome || rt.settled) continue;
         const parts = rt.order.map((seat) => allEvals[seat]);
         const ls = scoreLance(lance, rt.outcome, parts, order, rt.isPunto);
         scores.push(ls);
