@@ -21,6 +21,7 @@ export type AccentColor = "red" | "blue" | "purple" | "emerald" | "amber" | "ros
 export type TableFelt = "none" | "subtle" | "green" | "blue" | "wine";
 
 export type SuitColorScheme = "classic" | "four-color" | "blue-red" | "mono" | "tokyo";
+export type MusDeckTheme = "classic" | "neon";
 
 export const PLAYER_AVATARS = ["🐶", "🐱", "🐻", "🦊", "🐼", "🐨", "🦁", "🐯", "🐸", "🐵", "🦄", "🐲"] as const;
 export type PlayerAvatar = (typeof PLAYER_AVATARS)[number];
@@ -52,6 +53,8 @@ export interface CustomizeState {
   nickname: string;
   /** Public handle used to find a player in online Mus. */
   username: string;
+  musDeckTheme: MusDeckTheme;
+  friends: string[];
   autoDealDelay: number; // 0 = off, 1-5 seconds
   showProbabilities: boolean;
   aiDifficulty: AIDifficulty;
@@ -74,6 +77,9 @@ interface CustomizeActions {
   setPlayerAvatar: (avatar: PlayerAvatar) => void;
   setNickname: (name: string) => void;
   setUsername: (username: string) => void;
+  setMusDeckTheme: (theme: MusDeckTheme) => void;
+  addFriend: (username: string) => void;
+  removeFriend: (username: string) => void;
   setAutoDealDelay: (seconds: number) => void;
   setShowProbabilities: (show: boolean) => void;
   setAiDifficulty: (d: AIDifficulty) => void;
@@ -117,6 +123,8 @@ const defaults: CustomizeState = {
   playerAvatar: "🐶",
   nickname: "",
   username: "",
+  musDeckTheme: "classic",
+  friends: [],
   autoDealDelay: 0,
   showProbabilities: true,
   aiDifficulty: "normal",
@@ -182,6 +190,18 @@ export const useCustomizeStore = create<CustomizeStore>((set, get) => {
     setUsername: (username) => {
       set({ username });
       saveState({ ...get(), username });
+    },
+    setMusDeckTheme: (musDeckTheme) => {
+      set({ musDeckTheme });
+      saveState({ ...get(), musDeckTheme });
+    },
+    addFriend: (username) => {
+      const friend = username.toLowerCase().trim();
+      if (!friend || get().friends.includes(friend)) return;
+      const friends = [...get().friends, friend]; set({ friends }); saveState({ ...get(), friends });
+    },
+    removeFriend: (username) => {
+      const friends = get().friends.filter((friend) => friend !== username); set({ friends }); saveState({ ...get(), friends });
     },
     setAutoDealDelay: (autoDealDelay) => {
       set({ autoDealDelay });

@@ -10,7 +10,7 @@ import { DEFAULT_MUS_CONFIG } from "@/engine/mus/types";
 type View = "choose" | "config" | "join" | "lobby";
 
 export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; onStarted: () => void; onExit: () => void }) {
-  const { nickname, aiDifficulty } = useCustomizeStore();
+  const { nickname, aiDifficulty, friends, addFriend, removeFriend } = useCustomizeStore();
   const [view, setView] = useState<View>("choose");
   const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +21,7 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
   const [vaca, setVaca] = useState<VacaPoints>(30);
   const [bestOf, setBestOf] = useState<BestOf>(3);
   const [difficulty, setDifficulty] = useState<MusDifficulty>(aiDifficulty);
+  const [friendName, setFriendName] = useState("");
 
   const startedRef = useRef(false);
 
@@ -72,6 +73,11 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
             <input value={name} onChange={(e) => setName(e.target.value.slice(0, 16))} placeholder="Jugador" className="input" />
           </Field>
           <button onClick={() => setView("config")} className="btn-primary">Crear sala</button>
+          <div className="rounded-xl border border-border p-3 flex flex-col gap-2">
+            <span className="text-[10px] uppercase tracking-widest text-muted">Amigos</span>
+            <div className="flex gap-2"><input value={friendName} onChange={(e) => setFriendName(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 16))} placeholder="usuario" className="input !py-2" /><button onClick={() => { addFriend(friendName); setFriendName(""); }} className="px-3 rounded-lg border border-foreground text-xs">Añadir</button></div>
+            {friends.length === 0 ? <span className="text-xs text-muted">Añade a alguien por su usuario.</span> : friends.map((friend) => <div key={friend} className="flex items-center gap-2 text-sm"><span className="w-2 h-2 rounded-full bg-muted" /><span className="flex-1">@{friend}</span><span className="text-[10px] text-muted">Offline</span><button onClick={() => removeFriend(friend)} className="text-xs text-muted">×</button></div>)}
+          </div>
           <button onClick={() => setView("join")} className="btn-ghost">Unirme con código</button>
         </motion.div>
       )}

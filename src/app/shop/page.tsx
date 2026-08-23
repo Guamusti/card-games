@@ -10,7 +10,7 @@ import { useBattlePassStore } from "@/engine/battlepass";
 import { useCustomizeStore, PLAYER_AVATARS, AVATAR_PRICE, CARD_BACK_PRICE, TABLE_FELT_PRICE, ACCENT_COLOR_PRICE, SUIT_COLOR_PRICE } from "@/engine/customize/store";
 import { CARD_BACKS } from "@/engine/customize/cardBacks";
 import { useDarkMode } from "@/hooks/useDarkMode";
-import type { CardBack, AccentColor, TableFelt, SuitColorScheme, PlayerAvatar } from "@/engine/customize/store";
+import type { CardBack, AccentColor, TableFelt, SuitColorScheme, PlayerAvatar, MusDeckTheme } from "@/engine/customize/store";
 import type { CubeRarity, CubeReward } from "@/engine/battlepass";
 
 const CUBE_EMOJI: Record<CubeRarity, string> = { 1: "⬜", 2: "🟦", 3: "🟪", 4: "🟨" };
@@ -324,6 +324,17 @@ export default function ShopPage() {
             </Section>
 
             {/* Card Backs */}
+            <Section title="Baraja de Mus">
+              <div className="grid grid-cols-2 gap-2.5">
+                {(["classic", "neon"] as MusDeckTheme[]).map((theme) => (
+                  <button key={theme} onClick={() => customize.setMusDeckTheme(theme)} className={`rounded-xl border p-3 text-left transition ${customize.musDeckTheme === theme ? "border-foreground ring-1 ring-foreground" : "border-border"}`}>
+                    <div className={`h-16 rounded-lg mb-2 border ${theme === "neon" ? "bg-[#080909] border-[#78d8f5]" : "bg-[#fbfaf6] border-black/15"}`} />
+                    <span className="text-xs font-medium">{theme === "classic" ? "Clásica española" : "Neón minimalista"}</span>
+                  </button>
+                ))}
+              </div>
+            </Section>
+
             <Section title="Card Backs">
               <div className="grid grid-cols-4 gap-2.5">
                 {CARD_BACKS.map((back) => {
