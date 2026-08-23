@@ -15,7 +15,20 @@ interface MusCardProps {
   mini?: boolean;
   selected?: boolean;
   dimmed?: boolean;
+  /** Where the card flies in from (the deck sits at table centre). */
+  dealFrom?: "top" | "bottom" | "left" | "right";
   onClick?: () => void;
+}
+
+/** Off-screen origin for the deal, relative to the card's resting spot. */
+function dealOrigin(dir?: MusCardProps["dealFrom"]): { x: number; y: number; rotate: number } {
+  switch (dir) {
+    case "top": return { x: 0, y: 150, rotate: -6 };     // partner: from centre, below
+    case "left": return { x: 150, y: -30, rotate: 8 };   // left seat: from centre, right
+    case "right": return { x: -150, y: -30, rotate: -8 }; // right seat: from centre, left
+    case "bottom":
+    default: return { x: 0, y: -170, rotate: 5 };        // you: from centre, above
+  }
 }
 
 /**
@@ -33,12 +46,18 @@ const PIP_LAYOUT: Partial<Record<SpanishRank, [number, number][]>> = {
 };
 
 export default function MusCard({
-  card, hidden = false, delay = 0, small = false, mini = false, selected = false, dimmed = false, onClick,
+  card, hidden = false, delay = 0, small = false, mini = false, selected = false, dimmed = false, dealFrom, onClick,
 }: MusCardProps) {
   const { showCardShadow, animationSpeed, musDeckTheme } = useCustomizeStore();
   const neon = musDeckTheme === "neon";
   const dur = animationSpeed === "fast" ? 0.28 : animationSpeed === "slow" ? 0.55 : 0.38;
   const sizeClass = mini ? "mus-card-mini" : small ? "mus-card-sm" : "mus-card";
+  const origin = dealOrigin(dealFrom);
+  // Deal-in: fly from the deck at centre with a slight arc and spin.
+  const dealInitial = { opacity: 0, scale: 0.72, x: origin.x, y: origin.y, rotate: origin.rotate };
+  // Throw-out: drift back toward centre and fade (used when a card is discarded).
+  const dealExit = { opacity: 0, scale: 0.62, x: origin.x * 0.55, y: origin.y * 0.55, rotate: origin.rotate * 0.6, transition: { duration: dur * 0.7, ease: [0.4, 0, 1, 1] as const } };
+  const dealTransition = { duration: dur * 1.25, delay, ease: [0.16, 1, 0.3, 1] as const };
 
   // ── Face down ─────────────────────────────────────────────
   if (hidden || !card) {
@@ -47,9 +66,10 @@ export default function MusCard({
       : "repeating-linear-gradient(45deg, rgba(255,255,255,0.10) 0 2px, transparent 2px 7px), repeating-linear-gradient(-45deg, rgba(255,255,255,0.10) 0 2px, transparent 2px 7px)";
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.85 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: dur, delay, ease: [0.22, 1, 0.36, 1] }}
+        initial={dealInitial}
+        animate={{ opacity: 1, scale: 1, x: 0, y: 0, rotate: 0 }}
+        exit={dealExit}
+        transition={dealTransition}
         className={`${sizeClass} relative overflow-hidden rounded-[0.65rem] border select-none ${neon ? "border-white/20" : "border-[#5f121b]"} ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.22)]" : ""}`}
         style={{ background: neon ? "#0a0d10" : "#8a1f2a" }}
       >
@@ -107,9 +127,10 @@ export default function MusCard({
       type="button"
       onClick={onClick}
       disabled={!onClick}
-      initial={neon ? { opacity: 0, scale: 0.58, x: 28, y: -82, rotate: 9 } : { opacity: 0, scale: 0.85 }}
+      initial={dealInitial}
       animate={{ opacity: dimmed ? 0.4 : 1, scale: 1, x: 0, y: selected ? -12 : 0, rotate: selected && neon ? -2 : 0 }}
-      transition={{ duration: neon ? dur * 1.35 : dur, delay, ease: neon ? [0.16, 1, 0.3, 1] : [0.22, 1, 0.36, 1] }}
+      exit={dealExit}
+      transition={dealTransition}
       className={`${sizeClass} relative overflow-hidden rounded-[0.65rem] border select-none transition-colors ${
         neon
           ? `bg-[#080909] ${selected ? "border-white ring-2 ring-white/70" : "border-white/25"}`

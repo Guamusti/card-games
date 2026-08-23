@@ -11,7 +11,7 @@ import { activateSocial, sendRoomInvite, subscribeSocial, type RoomInvite } from
 type View = "choose" | "config" | "join" | "lobby";
 
 export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; onStarted: () => void; onExit: () => void }) {
-  const { nickname, aiDifficulty, username, friends } = useCustomizeStore();
+  const { nickname, aiDifficulty, username, friends, musDefaultVaca, musDefaultBestOf, musBotSpeed } = useCustomizeStore();
   const [onlineFriends, setOnlineFriends] = useState<Set<string>>(new Set());
   const [incomingInvite, setIncomingInvite] = useState<RoomInvite | null>(null);
   const [sentInvite, setSentInvite] = useState<string | null>(null);
@@ -21,8 +21,8 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
   const [busy, setBusy] = useState(false);
 
   const [code, setCode] = useState("");
-  const [vaca, setVaca] = useState<VacaPoints>(30);
-  const [bestOf, setBestOf] = useState<BestOf>(3);
+  const [vaca, setVaca] = useState<VacaPoints>(musDefaultVaca);
+  const [bestOf, setBestOf] = useState<BestOf>(musDefaultBestOf);
   const [difficulty, setDifficulty] = useState<MusDifficulty>(aiDifficulty);
   const displayName = nickname || username || "Jugador";
 
@@ -41,7 +41,7 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
   const doHost = async () => {
     setBusy(true); setError(null);
     try {
-      const cfg = { ...DEFAULT_MUS_CONFIG, vacaPoints: vaca, bestOf, difficulty };
+      const cfg = { ...DEFAULT_MUS_CONFIG, vacaPoints: vaca, bestOf, difficulty, botSpeed: musBotSpeed };
       await getMusRoom().host(displayName, mode, cfg);
       setView("lobby");
     } catch { setError("No se pudo crear la sala. ¿Está configurado Ably?"); }

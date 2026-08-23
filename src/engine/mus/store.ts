@@ -4,7 +4,7 @@ import { create } from "zustand";
 import type {
   SpanishCard, MusConfig, MusMode, MusPlayer, Lance, Team,
 } from "./types";
-import { DEFAULT_MUS_CONFIG, LANCES, teamOfSeat, LANCE_LABEL } from "./types";
+import { DEFAULT_MUS_CONFIG, LANCES, teamOfSeat, LANCE_LABEL, BOT_SPEED_FACTOR } from "./types";
 import { createShuffledDeck, shuffle } from "./deck";
 import { evaluateMusHand, isJuegoLance } from "./rules";
 import {
@@ -260,7 +260,8 @@ function initialState(): MusState {
 export const useMusStore = create<MusStore>((set, get) => {
 
   function schedule(fn: () => void, ms = 750) {
-    setTimeout(fn, ms);
+    const factor = BOT_SPEED_FACTOR[get().config?.botSpeed ?? "normal"];
+    setTimeout(fn, Math.round(ms * factor));
   }
 
   /** Record a player's declaration so it stays visible next to their seat. */
@@ -756,7 +757,8 @@ export const useMusStore = create<MusStore>((set, get) => {
     ...initialState(),
 
     startSolo: (config) => {
-      const merged = { ...DEFAULT_MUS_CONFIG, difficulty: useCustomizeStore.getState().aiDifficulty, ...config };
+      const cust = useCustomizeStore.getState();
+      const merged = { ...DEFAULT_MUS_CONFIG, difficulty: cust.aiDifficulty, botSpeed: cust.musBotSpeed, ...config };
       set({ ...initialState(), config: merged, mode: "solo" });
       dealNewHand(0);
     },

@@ -98,14 +98,14 @@ export default function MusTable() {
           <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.09]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.25) 0.5px, transparent 0.7px)", backgroundSize: "6px 6px" }} />
           {/* Partner (top) */}
           <div className="absolute top-3 left-1/2 -translate-x-1/2">
-            <SeatView player={partner} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[partner.seat]} active={activeSeats.includes(partner.seat)} round={s.musRound} />
+            <SeatView player={partner} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[partner.seat]} active={activeSeats.includes(partner.seat)} round={s.musRound} dealFrom="top" />
           </div>
           {/* Opponents (sides) */}
           <div className="absolute left-2 top-1/2 -translate-y-1/2">
-            <SeatView player={oppLeft} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[oppLeft.seat]} active={activeSeats.includes(oppLeft.seat)} round={s.musRound} />
+            <SeatView player={oppLeft} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[oppLeft.seat]} active={activeSeats.includes(oppLeft.seat)} round={s.musRound} dealFrom="left" />
           </div>
           <div className="absolute right-2 top-1/2 -translate-y-1/2">
-            <SeatView player={oppRight} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[oppRight.seat]} active={activeSeats.includes(oppRight.seat)} round={s.musRound} />
+            <SeatView player={oppRight} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[oppRight.seat]} active={activeSeats.includes(oppRight.seat)} round={s.musRound} dealFrom="right" />
           </div>
           {/* Center */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -127,6 +127,7 @@ export default function MusTable() {
                   key={`${s.musRound}-${c.rank}-${c.suit}-${i}`}
                   card={c}
                   delay={i * 0.09}
+                  dealFrom="bottom"
                   selected={s.phase === "discard" && s.discardSelection.includes(i)}
                   onClick={s.phase === "discard" ? () => s.toggleDiscard(i) : undefined}
                 />
@@ -236,8 +237,8 @@ function CenterInfo({ phase, lanceLabel, stake, message, isOrdago, declaring }: 
   );
 }
 
-function SeatView({ player, manoSeat, reveal, action, active, round }: {
-  player: MusPlayer; manoSeat: number; reveal: boolean; action: string | null; active: boolean; round: number;
+function SeatView({ player, manoSeat, reveal, action, active, round, dealFrom }: {
+  player: MusPlayer; manoSeat: number; reveal: boolean; action: string | null; active: boolean; round: number; dealFrom: "top" | "left" | "right";
 }) {
   return (
     <div className="flex flex-col items-center gap-1 w-[132px]">
@@ -249,7 +250,7 @@ function SeatView({ player, manoSeat, reveal, action, active, round }: {
       <PlayerTag player={player} manoSeat={manoSeat} active={active} onFelt />
       <div className="flex gap-0.5">
         {player.cards.map((c, i) => (
-          <MusCard key={`${round}-${c.rank}-${c.suit}-${i}`} card={reveal ? c : undefined} hidden={!reveal} mini delay={i * 0.09} />
+          <MusCard key={`${round}-${c.rank}-${c.suit}-${i}`} card={reveal ? c : undefined} hidden={!reveal} mini delay={i * 0.09} dealFrom={dealFrom} />
         ))}
       </div>
     </div>

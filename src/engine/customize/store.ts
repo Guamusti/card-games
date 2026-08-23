@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import type { VacaPoints, BestOf, BotSpeed } from "@/engine/mus/types";
 
 export type CardBack =
   | "classic"
@@ -54,6 +55,10 @@ export interface CustomizeState {
   /** Public handle used to find a player in online Mus. */
   username: string;
   musDeckTheme: MusDeckTheme;
+  // Mus default ruleset (pre-fills new games)
+  musDefaultVaca: VacaPoints;
+  musDefaultBestOf: BestOf;
+  musBotSpeed: BotSpeed;
   friends: string[];
   autoDealDelay: number; // 0 = off, 1-5 seconds
   showProbabilities: boolean;
@@ -78,6 +83,9 @@ interface CustomizeActions {
   setNickname: (name: string) => void;
   setUsername: (username: string) => void;
   setMusDeckTheme: (theme: MusDeckTheme) => void;
+  setMusDefaultVaca: (v: VacaPoints) => void;
+  setMusDefaultBestOf: (b: BestOf) => void;
+  setMusBotSpeed: (s: BotSpeed) => void;
   addFriend: (username: string) => void;
   removeFriend: (username: string) => void;
   setAutoDealDelay: (seconds: number) => void;
@@ -124,6 +132,9 @@ const defaults: CustomizeState = {
   nickname: "",
   username: "",
   musDeckTheme: "classic",
+  musDefaultVaca: 30,
+  musDefaultBestOf: 3,
+  musBotSpeed: "normal",
   friends: [],
   autoDealDelay: 0,
   showProbabilities: true,
@@ -194,6 +205,18 @@ export const useCustomizeStore = create<CustomizeStore>((set, get) => {
     setMusDeckTheme: (musDeckTheme) => {
       set({ musDeckTheme });
       saveState({ ...get(), musDeckTheme });
+    },
+    setMusDefaultVaca: (musDefaultVaca) => {
+      set({ musDefaultVaca });
+      saveState({ ...get(), musDefaultVaca });
+    },
+    setMusDefaultBestOf: (musDefaultBestOf) => {
+      set({ musDefaultBestOf });
+      saveState({ ...get(), musDefaultBestOf });
+    },
+    setMusBotSpeed: (musBotSpeed) => {
+      set({ musBotSpeed });
+      saveState({ ...get(), musBotSpeed });
     },
     addFriend: (username) => {
       const friend = username.toLowerCase().trim();

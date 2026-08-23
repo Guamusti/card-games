@@ -108,6 +108,14 @@ export interface MusHandEval {
 export type VacaPoints = 30 | 40;
 export type BestOf = 3 | 5;
 export type MusDifficulty = "easy" | "normal" | "hard";
+export type BotSpeed = "fast" | "normal" | "slow";
+
+/** Multiplier applied to scheduled pauses (bot thinking, deal beats). */
+export const BOT_SPEED_FACTOR: Record<BotSpeed, number> = {
+  fast: 0.55,
+  normal: 1,
+  slow: 1.5,
+};
 
 export interface MusConfig {
   /** Points to win a single "vaca" (game): 30 or 40. */
@@ -118,6 +126,8 @@ export interface MusConfig {
   reyes8: boolean;
   /** Bot skill for the solo / bot-filled modes. */
   difficulty: MusDifficulty;
+  /** Pace of bot pauses. Default "normal". */
+  botSpeed: BotSpeed;
 }
 
 export const DEFAULT_MUS_CONFIG: MusConfig = {
@@ -125,6 +135,7 @@ export const DEFAULT_MUS_CONFIG: MusConfig = {
   bestOf: 3,
   reyes8: true,
   difficulty: "normal",
+  botSpeed: "normal",
 };
 
 // ─── Modes ───────────────────────────────────────────────────

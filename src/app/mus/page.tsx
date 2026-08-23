@@ -5,23 +5,23 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useMusStore } from "@/engine/mus/store";
 import { useCustomizeStore } from "@/engine/customize/store";
-import type { VacaPoints, BestOf, MusDifficulty } from "@/engine/mus/types";
+import type { VacaPoints, BestOf, MusDifficulty, BotSpeed } from "@/engine/mus/types";
 import MusTable from "@/components/mus/MusTable";
 import MusPractice from "@/components/mus/MusPractice";
 import MusLobby from "@/components/mus/MusLobby";
 import BottomNav from "@/components/ui/BottomNav";
 import { resetMusRoom, type RoomMode } from "@/engine/mus/online";
 
-type Screen = "menu" | "solo-setup" | "solo" | "practice" | "lobby" | "online-play";
+type Screen = "menu" | "solo-setup" | "solo" | "practice" | "lobby" | "online-play" | "settings";
 
 export default function MusPage() {
   const [screen, setScreen] = useState<Screen>("menu");
   const startSolo = useMusStore((s) => s.startSolo);
   const resetGame = useMusStore((s) => s.reset);
-  const { aiDifficulty } = useCustomizeStore();
+  const { aiDifficulty, musDefaultVaca, musDefaultBestOf } = useCustomizeStore();
 
-  const [vaca, setVaca] = useState<VacaPoints>(30);
-  const [bestOf, setBestOf] = useState<BestOf>(3);
+  const [vaca, setVaca] = useState<VacaPoints>(musDefaultVaca);
+  const [bestOf, setBestOf] = useState<BestOf>(musDefaultBestOf);
   const [difficulty, setDifficulty] = useState<MusDifficulty>(aiDifficulty);
   const [onlineMode, setOnlineMode] = useState<RoomMode>("friends4");
 
@@ -57,8 +57,11 @@ export default function MusPage() {
             <ModeCard title="Práctica" desc="Probabilidad de ganar cada lance" icon={<IconChart />} onClick={() => setScreen("practice")} />
             <ModeCard title="2 reales vs 2 bots" desc="Tú y un amigo contra 2 bots" icon={<IconDuo />} badge="Online" onClick={() => { setOnlineMode("duo2"); setScreen("lobby"); }} />
             <ModeCard title="Online con amigos" desc="4 jugadores reales, 2 parejas" icon={<IconGlobe />} badge="Online" onClick={() => { setOnlineMode("friends4"); setScreen("lobby"); }} />
+            <ModeCard title="Ajustes de Mus" desc="Reglas por defecto, bots y baraja" icon={<IconGear />} onClick={() => setScreen("settings")} />
           </motion.div>
         )}
+
+        {screen === "settings" && <MusSettings vaca={vaca} bestOf={bestOf} setVaca={setVaca} setBestOf={setBestOf} />}
 
         {screen === "solo-setup" && (
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm flex flex-col gap-5">
@@ -77,6 +80,7 @@ export default function MusPage() {
               ))}
             </OptionRow>
             <button onClick={() => { startSolo({ vacaPoints: vaca, bestOf, difficulty }); setScreen("solo"); }} className="mt-2 rounded-xl border border-foreground bg-foreground text-background px-4 py-3.5 text-sm font-medium active:scale-95 transition">Jugar</button>
+            <p className="text-center text-[11px] text-muted">Los valores por defecto se cambian en <button onClick={() => setScreen("settings")} className="underline hover:text-foreground">Ajustes de Mus</button></p>
           </motion.div>
         )}
 
@@ -122,6 +126,64 @@ function OptionRow({ label, hint, children }: { label: string; hint: string; chi
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button onClick={onClick} className={`rounded-full border text-xs px-3 py-1.5 transition-colors ${active ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:border-foreground"}`}>{children}</button>
+  );
+}
+
+function MusSettings({ vaca, bestOf, setVaca, setBestOf }: {
+  vaca: VacaPoints; bestOf: BestOf; setVaca: (v: VacaPoints) => void; setBestOf: (b: BestOf) => void;
+}) {
+  const {
+    aiDifficulty, setAiDifficulty,
+    musDeckTheme, setMusDeckTheme,
+    musBotSpeed, setMusBotSpeed,
+    musDefaultVaca, setMusDefaultVaca,
+    musDefaultBestOf, setMusDefaultBestOf,
+  } = useCustomizeStore();
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm flex flex-col gap-5">
+      <h2 className="text-lg font-light">Ajustes de Mus</h2>
+      <p className="text-[11px] text-muted -mt-3">Se aplican por defecto a partidas nuevas y salas que crees.</p>
+
+      <OptionRow label="Vaca a" hint="Piedras por vaca">
+        {([30, 40] as VacaPoints[]).map((v) => (
+          <Chip key={v} active={musDefaultVaca === v} onClick={() => { setMusDefaultVaca(v); setVaca(v); }}>{v}</Chip>
+        ))}
+      </OptionRow>
+      <OptionRow label="Partida" hint="Vacas para ganar">
+        {([3, 5] as BestOf[]).map((b) => (
+          <Chip key={b} active={musDefaultBestOf === b} onClick={() => { setMusDefaultBestOf(b); setBestOf(b); }}>BO{b}</Chip>
+        ))}
+      </OptionRow>
+      <OptionRow label="Dificultad" hint="Nivel de los bots">
+        {(["easy", "normal", "hard"] as MusDifficulty[]).map((d) => (
+          <Chip key={d} active={aiDifficulty === d} onClick={() => setAiDifficulty(d)}>
+            {d === "easy" ? "Fácil" : d === "normal" ? "Normal" : "Difícil"}
+          </Chip>
+        ))}
+      </OptionRow>
+      <OptionRow label="Ritmo" hint="Velocidad de los bots">
+        {(["slow", "normal", "fast"] as BotSpeed[]).map((sp) => (
+          <Chip key={sp} active={musBotSpeed === sp} onClick={() => setMusBotSpeed(sp)}>
+            {sp === "slow" ? "Lento" : sp === "normal" ? "Normal" : "Rápido"}
+          </Chip>
+        ))}
+      </OptionRow>
+      <OptionRow label="Baraja" hint="Estilo de las cartas">
+        <Chip active={musDeckTheme === "classic"} onClick={() => setMusDeckTheme("classic")}>Clásica</Chip>
+        <Chip active={musDeckTheme === "neon"} onClick={() => setMusDeckTheme("neon")}>Neón</Chip>
+      </OptionRow>
+
+      <span className="text-[11px] text-muted text-center">Sin señas · variante 8 reyes / 8 ases</span>
+    </motion.div>
+  );
+}
+
+function IconGear() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" />
+    </svg>
   );
 }
 
