@@ -653,9 +653,10 @@ export const useMusStore = create<MusStore>((set, get) => {
 
   function awardDeclinedStake(lance: Lance, rt: LanceRuntime) {
     const s = get();
-    if (!rt.outcome || (rt.earlyPoints ?? 0) > 0) return;
-    const points = rt.outcome.kind === "ordago-noquiero" ? 1 : rt.outcome.payout;
-    const team = rt.outcome.envidoTeam;
+    const outcome = rt.outcome;
+    if (!outcome || (outcome.kind !== "noquiero" && outcome.kind !== "ordago-noquiero") || (rt.earlyPoints ?? 0) > 0) return;
+    const points = outcome.kind === "ordago-noquiero" ? 1 : outcome.payout;
+    const team = outcome.envidoTeam;
     const score = { ...s.score };
     score[team] += points;
 
