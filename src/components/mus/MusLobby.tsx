@@ -20,11 +20,11 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [name, setName] = useState(nickname || "");
   const [code, setCode] = useState("");
   const [vaca, setVaca] = useState<VacaPoints>(30);
   const [bestOf, setBestOf] = useState<BestOf>(3);
   const [difficulty, setDifficulty] = useState<MusDifficulty>(aiDifficulty);
+  const displayName = nickname || username || "Jugador";
 
   const startedRef = useRef(false);
 
@@ -42,7 +42,7 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
     setBusy(true); setError(null);
     try {
       const cfg = { ...DEFAULT_MUS_CONFIG, vacaPoints: vaca, bestOf, difficulty };
-      await getMusRoom().host(name || "Anfitrión", mode, cfg);
+      await getMusRoom().host(displayName, mode, cfg);
       setView("lobby");
     } catch { setError("No se pudo crear la sala. ¿Está configurado Ably?"); }
     setBusy(false);
@@ -52,11 +52,18 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
     if (code.trim().length < 4) { setError("Código no válido"); return; }
     setBusy(true); setError(null);
     try {
-      await getMusRoom().join(name || "Invitado", code);
+      await getMusRoom().join(displayName, code);
       setView("lobby");
     } catch { setError("No se pudo unir. Revisa el código."); }
     setBusy(false);
   };
+
+  useEffect(() => {
+    const inviteCode = sessionStorage.getItem("mus-invite-code");
+    if (!inviteCode) return;
+    sessionStorage.removeItem("mus-invite-code");
+    void (async () => { setBusy(true); try { await getMusRoom().join(displayName, inviteCode); setView("lobby"); } catch { setError("No se pudo unir a la sala."); } finally { setBusy(false); } })();
+  }, [displayName]);
 
   const exit = () => { resetMusRoom(); onExit(); };
 
@@ -71,13 +78,11 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
       </div>
 
       {error && <p className="text-xs text-accent text-center">{error}</p>}
-      {incomingInvite && view === "choose" && <div className="rounded-xl border border-correct/40 bg-correct/5 p-3 flex flex-col gap-2"><span className="text-sm">@{incomingInvite.from} te invita a jugar</span><div className="flex gap-2"><button onClick={() => { setCode(incomingInvite.code); setView("join"); setIncomingInvite(null); }} className="btn-primary flex-1">Aceptar</button><button onClick={() => setIncomingInvite(null)} className="btn-ghost flex-1">Ahora no</button></div></div>}
+      {incomingInvite && view === "choose" && <div className="rounded-xl border border-correct/40 bg-correct/5 p-3 flex flex-col gap-2"><span className="text-sm">@{incomingInvite.from} te invita a jugar</span><div className="flex gap-2"><button onClick={async () => { setCode(incomingInvite.code); setBusy(true); try { await getMusRoom().join(displayName, incomingInvite.code); setView("lobby"); } catch { setError("No se pudo unir a la sala."); } setBusy(false); setIncomingInvite(null); }} className="btn-primary flex-1">Aceptar</button><button onClick={() => setIncomingInvite(null)} className="btn-ghost flex-1">Ahora no</button></div></div>}
 
       {view === "choose" && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-3">
-          <Field label="Tu nombre">
-            <input value={name} onChange={(e) => setName(e.target.value.slice(0, 16))} placeholder="Jugador" className="input" />
-          </Field>
+          <p className="text-xs text-muted text-center">Juegas como <b className="text-foreground">{displayName}</b> · cámbialo en Perfil.</p>
           <button onClick={() => setView("config")} className="btn-primary">Crear sala</button>
           <button onClick={() => setView("join")} className="btn-ghost">Unirme con código</button>
         </motion.div>

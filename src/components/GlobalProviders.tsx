@@ -19,7 +19,7 @@ export default function GlobalProviders() {
       <XPToast />
       <AchievementToast />
       <DailyLoginModal />
-      {invite && <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[min(92vw,380px)] rounded-xl border border-correct/40 bg-background shadow-xl p-3 flex items-center gap-3"><span className="h-2.5 w-2.5 rounded-full bg-correct animate-pulse" /><div className="flex-1"><p className="text-sm font-medium">Invitación a Mus</p><p className="text-xs text-muted">@{invite.from} te invita a su sala</p></div><button onClick={() => { window.location.href = `/mus?join=${invite!.code}`; }} className="rounded-lg bg-foreground px-3 py-2 text-xs text-background">Unirme</button><button onClick={() => setInvite(null)} className="text-muted">×</button></div>}
+      {invite && <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[min(92vw,380px)] rounded-xl border border-correct/40 bg-background shadow-xl p-3 flex items-center gap-3"><span className="h-2.5 w-2.5 rounded-full bg-correct animate-pulse" /><div className="flex-1"><p className="text-sm font-medium">Invitación a Mus</p><p className="text-xs text-muted">@{invite.from} te invita a su sala</p></div><button onClick={() => { sessionStorage.setItem("mus-invite-code", invite!.code); window.location.href = "/mus"; }} className="rounded-lg bg-foreground px-3 py-2 text-xs text-background">Unirme</button><button onClick={() => setInvite(null)} className="text-muted">×</button></div>}
     </>
   );
 }
