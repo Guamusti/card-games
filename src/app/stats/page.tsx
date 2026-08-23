@@ -11,6 +11,7 @@ import { useDailyLoginStore } from "@/engine/dailyLogin";
 import SparklineChart from "@/components/ui/SparklineChart";
 import AppTopBar from "@/components/ui/AppTopBar";
 import BottomNav from "@/components/ui/BottomNav";
+import { useCustomizeStore } from "@/engine/customize/store";
 
 function pct(num: number, den: number): string {
   if (den === 0) return "—";
@@ -26,6 +27,8 @@ export default function StatsPage() {
   const unlockedIds = useAchievementStore((s) => s.unlockedIds);
   const dailyStreak = useDailyLoginStore((s) => s.streak);
   const pnlEntries = usePnLStore((s) => s.entries);
+  const { username, setUsername, friends, addFriend, removeFriend } = useCustomizeStore();
+  const [friendName, setFriendName] = useState("");
   const bjAccuracy = bj.totalDecisions > 0
     ? Math.round((bj.correctDecisions / bj.totalDecisions) * 100) : null;
   const bjWinRate = bj.handsPlayed > 0
@@ -59,6 +62,14 @@ export default function StatsPage() {
           </div>
         ) : (
         <div className="max-w-lg mx-auto flex flex-col gap-8 sm:gap-10">
+          <Section title="Amigos" delay={0.02}>
+            <div className="flex flex-col gap-2 rounded-xl border border-border p-3">
+              <label className="text-xs text-muted">Tu usuario de Mus</label>
+              <input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 16))} placeholder="tu_usuario" className="rounded-lg border border-border px-3 py-2 text-sm bg-transparent outline-none" />
+              <div className="flex gap-2 pt-1"><input value={friendName} onChange={(e) => setFriendName(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 16))} placeholder="Añadir por usuario" className="min-w-0 flex-1 rounded-lg border border-border px-3 py-2 text-sm bg-transparent outline-none" /><button onClick={() => { addFriend(friendName); setFriendName(""); }} className="rounded-lg bg-foreground px-3 text-xs text-background">Añadir</button></div>
+              {friends.length === 0 ? <span className="text-xs text-muted">Aún no tienes amigos.</span> : friends.map((friend) => <div key={friend} className="flex items-center gap-2 text-sm py-1"><span className="h-2 w-2 rounded-full bg-muted" /><span className="flex-1">@{friend}</span><span className="text-[10px] text-muted">Offline</span><button onClick={() => removeFriend(friend)} className="text-muted">×</button></div>)}
+            </div>
+          </Section>
           {/* ─── Portfolio Hero (Robinhood style) ─── */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
