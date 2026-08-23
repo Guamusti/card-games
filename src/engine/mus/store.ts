@@ -632,10 +632,10 @@ export const useMusStore = create<MusStore>((set, get) => {
     });
     recordLance(lance, rt, rt.outcome);
 
-    // A declined envite is awarded straight away, as it is at a real table.
-    // Played lances still wait for the end-of-hand recuento.
-    if (rt.outcome?.kind === "noquiero" || rt.outcome?.kind === "ordago-noquiero") {
-      settleDeclinedEnvite(lance, rt);
+    // Any lance already decided without a showdown is awarded straight away.
+    // A wanted envite still waits for the final hand comparison.
+    if (rt.outcome?.kind === "paso" || rt.outcome?.kind === "noquiero" || rt.outcome?.kind === "ordago-noquiero") {
+      settleResolvedLance(lance, rt);
     }
 
     // Órdago accepted → straight to showdown, decides the vaca.
@@ -651,7 +651,7 @@ export const useMusStore = create<MusStore>((set, get) => {
     set({ lances: { ...s.lances, [lance]: { ...rt, outcome } } });
   }
 
-  function settleDeclinedEnvite(lance: Lance, rt: LanceRuntime) {
+  function settleResolvedLance(lance: Lance, rt: LanceRuntime) {
     const s = get();
     if (!rt.outcome || rt.settled) return;
     const participants = rt.order.map((seat) => evalsFor(s.players, s.config.reyes8)[seat]);
