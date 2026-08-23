@@ -73,12 +73,15 @@ export default function MusPage() {
               {([3, 5] as BestOf[]).map((b) => <Chip key={b} active={bestOf === b} onClick={() => setBestOf(b)}>BO{b}</Chip>)}
             </OptionRow>
             <OptionRow label="Dificultad" hint="Nivel de los bots">
-              {(["easy", "normal", "hard"] as MusDifficulty[]).map((d) => (
+              {(["easy", "normal", "hard", "imposible"] as MusDifficulty[]).map((d) => (
                 <Chip key={d} active={difficulty === d} onClick={() => setDifficulty(d)}>
-                  {d === "easy" ? "Fácil" : d === "normal" ? "Normal" : "Difícil"}
+                  {DIFF_LABEL[d]}
                 </Chip>
               ))}
             </OptionRow>
+            {difficulty === "imposible" && (
+              <p className="-mt-3 text-[11px] text-accent">Los bots juegan por estadística (Monte Carlo) y pot-odds. Muy difícil de ganar.</p>
+            )}
             <button onClick={() => { startSolo({ vacaPoints: vaca, bestOf, difficulty }); setScreen("solo"); }} className="mt-2 rounded-xl border border-foreground bg-foreground text-background px-4 py-3.5 text-sm font-medium active:scale-95 transition">Jugar</button>
             <p className="text-center text-[11px] text-muted">Los valores por defecto se cambian en <button onClick={() => setScreen("settings")} className="underline hover:text-foreground">Ajustes de Mus</button></p>
           </motion.div>
@@ -129,6 +132,10 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
+const DIFF_LABEL: Record<MusDifficulty, string> = {
+  easy: "Fácil", normal: "Normal", hard: "Difícil", imposible: "Imposible",
+};
+
 function MusSettings({ vaca, bestOf, setVaca, setBestOf }: {
   vaca: VacaPoints; bestOf: BestOf; setVaca: (v: VacaPoints) => void; setBestOf: (b: BestOf) => void;
 }) {
@@ -156,12 +163,15 @@ function MusSettings({ vaca, bestOf, setVaca, setBestOf }: {
         ))}
       </OptionRow>
       <OptionRow label="Dificultad" hint="Nivel de los bots">
-        {(["easy", "normal", "hard"] as MusDifficulty[]).map((d) => (
+        {(["easy", "normal", "hard", "imposible"] as MusDifficulty[]).map((d) => (
           <Chip key={d} active={aiDifficulty === d} onClick={() => setAiDifficulty(d)}>
-            {d === "easy" ? "Fácil" : d === "normal" ? "Normal" : "Difícil"}
+            {DIFF_LABEL[d]}
           </Chip>
         ))}
       </OptionRow>
+      {aiDifficulty === "imposible" && (
+        <p className="-mt-3 text-[11px] text-accent">Bots que juegan por estadística (Monte Carlo) y pot-odds. Muy difícil de ganar.</p>
+      )}
       <OptionRow label="Ritmo" hint="Velocidad de los bots">
         {(["slow", "normal", "fast"] as BotSpeed[]).map((sp) => (
           <Chip key={sp} active={musBotSpeed === sp} onClick={() => setMusBotSpeed(sp)}>

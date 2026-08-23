@@ -39,7 +39,7 @@ export const TABLE_FELT_PRICE = 2500;
 export const ACCENT_COLOR_PRICE = 1500;
 export const SUIT_COLOR_PRICE = 2000;
 
-export type AIDifficulty = "easy" | "normal" | "hard";
+export type AIDifficulty = "easy" | "normal" | "hard" | "imposible";
 
 export interface CustomizeState {
   cardBack: CardBack;

@@ -5,6 +5,7 @@
 
 import type { SpanishCard, Lance, MusDifficulty, MusHandEval } from "./types";
 import { musValue, evaluateMusHand } from "./rules";
+import { lanceWinProbability } from "./probability";
 
 // ─── Mus / discard ───────────────────────────────────────────
 
@@ -50,7 +51,43 @@ export function decideMus(
   if (difficulty === "easy" && discards.length >= 1 && Math.random() < 0.15) mus = true;
   if (difficulty === "hard" && strongKept >= 3 && eval_.pares.category !== "none") mus = false;
 
+  // Impossible bot: decide mus on the actual hand's aggregate win odds.
+  if (difficulty === "imposible") {
+    return decideMusStat(cards, reyes8, keep, discards);
+  }
+
   return { mus, discards };
+}
+
+/**
+ * Statistics-driven mus/discard for the impossible bot. Estimates how good the
+ * current hand is across all four lances; keeps mus only when the hand has no
+ * real edge anywhere, and throws the low-value cards to chase a better one.
+ */
+function decideMusStat(
+  cards: SpanishCard[],
+  reyes8: boolean,
+  keep: boolean[],
+  heuristicDiscards: number[],
+): MusDecision {
+  const eval_ = evaluateMusHand(cards, reyes8);
+  // Cheap odds read (few sims — this runs before betting, speed matters).
+  const pg = lanceWinProbability(cards, reyes8, "grande", 2, 220);
+  const pc = lanceWinProbability(cards, reyes8, "chica", 2, 220);
+  const pp = lanceWinProbability(cards, reyes8, "pares", 2, 220);
+  const pj = lanceWinProbability(cards, reyes8, "juego", 2, 220);
+  const best = Math.max(pg, pc, pp, pj);
+
+  // A hand with a genuine edge (a strong lance) is kept; otherwise seek mus.
+  const hasEdge =
+    best >= 0.62 ||
+    eval_.juego.sum === 31 ||
+    eval_.pares.category === "duples" ||
+    eval_.pares.category === "medias";
+
+  const keptCount = keep.filter(Boolean).length;
+  const mus = !hasEdge && heuristicDiscards.length > 0 && keptCount < 4;
+  return { mus, discards: heuristicDiscards };
 }
 
 // ─── Lance strength (0..1) ───────────────────────────────────
@@ -101,6 +138,9 @@ export type BotBetAction =
 export interface BotBetContext {
   eval: MusHandEval;
   lance: Lance;
+  /** Raw hand — required for the statistics-driven "imposible" bot. */
+  cards?: SpanishCard[];
+  reyes8?: boolean;
   /** True when there is a live envite from the opposing team to respond to. */
   liveEnvite: boolean;
   /** Current proposed stake (piedras) if liveEnvite. */
@@ -111,10 +151,13 @@ export interface BotBetContext {
   pointsToWin: number;
 }
 
-const AGGRO: Record<MusDifficulty, number> = { easy: 0.35, normal: 0.55, hard: 0.72 };
-const BLUFF: Record<MusDifficulty, number> = { easy: 0.05, normal: 0.12, hard: 0.2 };
+const AGGRO: Record<MusDifficulty, number> = { easy: 0.35, normal: 0.55, hard: 0.72, imposible: 0.78 };
+const BLUFF: Record<MusDifficulty, number> = { easy: 0.05, normal: 0.12, hard: 0.2, imposible: 0.06 };
 
 export function decideBet(ctx: BotBetContext): BotBetAction {
+  if (ctx.difficulty === "imposible" && ctx.cards) {
+    return decideBetStat(ctx);
+  }
   const strength = lanceStrength(ctx.eval, ctx.lance);
   const aggro = AGGRO[ctx.difficulty];
   const bluff = BLUFF[ctx.difficulty];
@@ -151,4 +194,48 @@ export function decideBet(ctx: BotBetContext): BotBetAction {
 
 function clamp(x: number): number {
   return Math.max(0, Math.min(1, x));
+}
+
+// ─── Impossible bot: statistics + pot odds ───────────────────
+//
+// Plays on the real Monte-Carlo probability `p` that this hand wins the lance
+// against the two opponents, then bets by pot odds. Value-heavy, thin-calling,
+// with a small balanced bluff so it can't be trivially read. Very hard to beat.
+
+function decideBetStat(ctx: BotBetContext): BotBetAction {
+  const reyes8 = ctx.reyes8 ?? true;
+  const p = lanceWinProbability(ctx.cards!, reyes8, ctx.lance, 2, 520);
+  const r = Math.random();
+
+  if (ctx.liveEnvite) {
+    if (ctx.isOrdago) {
+      // Órdago puts the whole vaca on the line — accept only as a clear favourite.
+      return { action: p >= 0.78 ? "quiero" : "noquiero" };
+    }
+    // Pot odds: calling risks the extra stake to win the matched stake plus the
+    // pot already committed. With small stakes the break-even sits below 0.5.
+    const stake = Math.max(1, ctx.currentStake);
+    const breakeven = stake / (stake + Math.max(2, stake + 2));
+    // Raise for clear value.
+    if (p >= 0.74 && ctx.currentStake < ctx.pointsToWin) {
+      const amount = p >= 0.9 ? 4 + Math.floor(r * 3) : 2 + Math.floor(r * 2);
+      return { action: "subir", amount };
+    }
+    if (p >= breakeven + 0.05) return { action: "quiero" };
+    // Rare balanced bluff-call on marginal spots.
+    if (p >= breakeven - 0.06 && r < BLUFF.imposible) return { action: "quiero" };
+    return { action: "noquiero" };
+  }
+
+  // Opening the action.
+  // Monster → órdago, but only when the reward can actually close the vaca out.
+  if (p >= 0.94 && ctx.pointsToWin <= 12 && r < 0.5) return { action: "ordago" };
+  if (p >= 0.6) {
+    // Size the value bet with the edge.
+    const amount = p >= 0.85 ? 4 + Math.floor(r * 3) : p >= 0.72 ? 3 : 2;
+    return { action: "envido", amount };
+  }
+  // Small, balanced semi-bluff so passes don't perfectly signal weakness.
+  if (p <= 0.28 && r < BLUFF.imposible) return { action: "envido", amount: 2 };
+  return { action: "paso" };
 }

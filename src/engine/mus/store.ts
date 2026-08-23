@@ -507,6 +507,8 @@ export const useMusStore = create<MusStore>((set, get) => {
       const decision = decideBet({
         eval: evaluateMusHand(p.cards, st.config.reyes8),
         lance,
+        cards: p.cards,
+        reyes8: st.config.reyes8,
         liveEnvite: cur.bet.envidoTeam !== null && cur.bet.envidoTeam !== team,
         currentStake: cur.bet.chain[cur.bet.chain.length - 1] ?? 0,
         isOrdago: cur.bet.isOrdago,

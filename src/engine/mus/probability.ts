@@ -107,3 +107,38 @@ export function calculateMusProbabilities(
     },
   };
 }
+
+/**
+ * Fast single-lance win probability for one hand against `numOpponents`
+ * random opposing hands. A non-participating hand in pares/juego loses to a
+ * participating one automatically (via compareForLance), so uncontested wins
+ * are counted correctly. Used by the "imposible" bot to bet on real odds.
+ * Returns a probability in [0,1].
+ */
+export function lanceWinProbability(
+  myCards: SpanishCard[],
+  reyes8: boolean,
+  lance: Lance,
+  numOpponents: number = 2,
+  simulations: number = 480,
+): number {
+  const myEval = evaluateMusHand(myCards, reyes8);
+  // Can't win a lance you don't take part in.
+  if ((lance === "pares" || lance === "juego") && !participatesInLance(myEval, lance)) return 0;
+
+  const used = new Set(myCards.map(cardKey));
+  const remaining = createSpanishDeck().filter((c) => !used.has(cardKey(c)));
+
+  let wins = 0;
+  for (let s = 0; s < simulations; s++) {
+    let deck = shuffle(remaining);
+    let iWin = true;
+    for (let o = 0; o < numOpponents; o++) {
+      const { cards, deck: rest } = drawCards(deck, 4);
+      deck = rest;
+      if (compareForLance(myEval, evaluateMusHand(cards, reyes8), lance) <= 0) { iWin = false; break; }
+    }
+    if (iWin) wins++;
+  }
+  return wins / simulations;
+}

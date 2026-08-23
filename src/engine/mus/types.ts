@@ -107,7 +107,7 @@ export interface MusHandEval {
 
 export type VacaPoints = 30 | 40;
 export type BestOf = 3 | 5;
-export type MusDifficulty = "easy" | "normal" | "hard";
+export type MusDifficulty = "easy" | "normal" | "hard" | "imposible";
 export type BotSpeed = "fast" | "normal" | "slow";
 
 /** Multiplier applied to scheduled pauses (bot thinking, deal beats). */
