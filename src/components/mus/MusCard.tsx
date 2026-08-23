@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import type { SpanishCard, SpanishRank } from "@/engine/mus/types";
 import { RANK_SHORT, RANK_LABEL, SUIT_NAME } from "@/engine/mus/types";
-import SpanishSuit, { SUIT_COLOR, NEON_SUIT_COLOR } from "./SpanishSuit";
+import SpanishSuit, { SUIT_COLOR, NEON_SUIT_COLOR, SUIT_PINTA } from "./SpanishSuit";
 import MusFigure from "./MusFigure";
 import { useCustomizeStore } from "@/engine/customize/store";
 
@@ -86,7 +86,9 @@ export default function MusCard({
   const rank = RANK_SHORT[card.rank];
   const isFigure = card.rank >= 10;
   const indexSize = mini ? 8 : small ? 11 : 14;
-  const cornerSuit = mini ? 7 : small ? 9 : 11;
+  const pintaCount = SUIT_PINTA[card.suit];
+  const pintaW = mini ? 3 : small ? 4 : 5;
+  const pintaH = mini ? 1.1 : 1.6;
   const title = `${RANK_LABEL[card.rank]} de ${SUIT_NAME[card.suit]}`;
 
   // Mini cards drop the pip layout — at that size only one clear mark reads.
@@ -96,7 +98,7 @@ export default function MusCard({
     </div>
   ) : isFigure ? (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <MusFigure rank={card.rank} height={small ? 34 : 46} color={color} />
+      <MusFigure rank={card.rank} height={small ? 34 : 46} color={color} outline={neon} />
     </div>
   ) : (
     <div className="absolute inset-0 pointer-events-none">
@@ -112,13 +114,19 @@ export default function MusCard({
     </div>
   );
 
+  // Corner "pinta": the rank number followed by N little dashes that identify
+  // the suit (oros 1, copas 2, espadas 3, bastos 4) — as on a real Spanish deck.
   const cornerIndex = (rotated: boolean) => (
     <div
-      className={`absolute flex flex-col items-center leading-none ${rotated ? "rotate-180" : ""}`}
+      className={`absolute flex items-start gap-[2px] leading-none ${rotated ? "rotate-180" : ""}`}
       style={{ color, [rotated ? "right" : "left"]: mini ? 2 : 4, [rotated ? "bottom" : "top"]: mini ? 2 : 3 }}
     >
       <span className="font-semibold tracking-[-0.06em]" style={{ fontSize: indexSize }}>{rank}</span>
-      <SpanishSuit suit={card.suit} size={cornerSuit} theme={musDeckTheme} />
+      <span className="flex flex-col gap-[2px]" style={{ marginTop: mini ? 1 : 2 }}>
+        {Array.from({ length: pintaCount }, (_, i) => (
+          <span key={i} className="rounded-full" style={{ width: pintaW, height: pintaH, background: "currentColor" }} />
+        ))}
+      </span>
     </div>
   );
 
