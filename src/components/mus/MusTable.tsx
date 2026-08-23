@@ -204,7 +204,7 @@ function SeatView({ player, manoSeat, reveal, action, active, round }: {
   player: MusPlayer; manoSeat: number; reveal: boolean; action: string | null; active: boolean; round: number;
 }) {
   return (
-    <div className="flex flex-col items-center gap-1 w-[92px]">
+    <div className="flex flex-col items-center gap-1 w-[132px]">
       <div className="h-6 flex items-center justify-center">
         <AnimatePresence>
           {action && <ActionBubble key={action} text={action} />}

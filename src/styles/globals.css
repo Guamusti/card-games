@@ -181,7 +181,8 @@ body {
 @media (min-width: 640px) {
   .mus-card { width: 5.4rem; height: 8rem; }
   .mus-card-sm { width: 4rem; height: 5.9rem; }
-  .mus-card-mini { width: 2.6rem; height: 3.8rem; }
+  /* Four side cards must fit within each edge of the felt table. */
+  .mus-card-mini { width: 1.9rem; height: 2.8rem; }
 }
 
 /* ───── Animations ───── */
