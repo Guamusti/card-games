@@ -70,6 +70,7 @@ export interface LanceScore {
   winnerTeam: Team | null;
   points: number;
   detail: string;
+  isPunto?: boolean;
 }
 
 /** Pares tantos held by a team's members (only those with pares). */
@@ -92,7 +93,7 @@ export function scoreLance(
 ): LanceScore {
   // Punto (nobody reached 31) fills the juego slot but scores like a 1-point lance.
   if (lance === "juego" && isPunto) {
-    return scorePunto(outcome, participants, order);
+    return { ...scorePunto(outcome, participants, order), isPunto: true };
   }
   // Órdago is resolved elsewhere (decides the whole vaca) — no piedras here.
   if (outcome.kind === "ordago-quiero") {

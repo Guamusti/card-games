@@ -20,6 +20,7 @@ export type MusPhase =
   | "idle"
   | "mus"
   | "discard"
+  | "dealing"
   | "grande" | "chica" | "pares" | "juego"
   | "showdown"
   | "handEnd"
@@ -66,6 +67,9 @@ export interface MusState {
   // lances
   lances: Record<Lance, LanceRuntime | null>;
   currentLance: Lance | null;
+  /** During pares/juego, players declare (truthfully) before betting. */
+  declaring: Lance | null;
+  declaredSeats: number[];
   // results
   handScores: LanceScore[];
   score: { A: number; B: number };
@@ -84,9 +88,11 @@ interface MusActions {
   voteMus: (mus: boolean) => void;
   toggleDiscard: (index: number) => void;
   confirmDiscard: () => void;
+  declare: () => void;
   humanBet: (a: HumanBetAction) => void;
   nextHand: () => void;
   reset: () => void;
+  submitDeclare: (seat: number) => void;
   // ── Online (host-authoritative) ──
   startOnlineHost: (config: MusConfig, humanSeats: number[], names: Record<number, string>, localSeat: number, roomCode: string) => void;
   startOnlineClient: (localSeat: number, roomCode: string) => void;
@@ -104,6 +110,7 @@ export type MusNetAction =
   | { t: "mus"; mus: boolean }
   | { t: "bet"; a: HumanBetAction }
   | { t: "discard"; discards: number[] }
+  | { t: "declare" }
   | { t: "next" };
 
 let onlineSend: ((seat: number, action: MusNetAction) => void) | null = null;
@@ -206,16 +213,6 @@ function setupLance(lance: Lance, players: MusPlayer[], manoSeat: number, reyes8
   };
 }
 
-/** Next index in a lance order belonging to the opposing team of `team`. */
-function nextOpposing(rt: LanceRuntime, fromIdx: number, team: Team): number {
-  const n = rt.order.length;
-  for (let i = 1; i <= n; i++) {
-    const idx = (fromIdx + i) % n;
-    if (teamOfSeat(rt.order[idx]) !== team) return idx;
-  }
-  return -1;
-}
-
 function initialState(): MusState {
   return {
     config: { ...DEFAULT_MUS_CONFIG },
@@ -237,6 +234,8 @@ function initialState(): MusState {
     musRound: 0,
     lances: { grande: null, chica: null, pares: null, juego: null },
     currentLance: null,
+    declaring: null,
+    declaredSeats: [],
     handScores: [],
     score: { A: 0, B: 0 },
     vacas: { A: 0, B: 0 },
@@ -346,6 +345,7 @@ export const useMusStore = create<MusStore>((set, get) => {
       return c;
     };
 
+    const counts: (string | null)[] = [null, null, null, null];
     const players = s.players.map((p) => {
       let discards: number[];
       if (p.isHuman) {
@@ -355,6 +355,7 @@ export const useMusStore = create<MusStore>((set, get) => {
         const dec = decideMus(p.cards, s.config.reyes8, s.config.difficulty);
         discards = dec.discards.length > 0 ? dec.discards : [worstCardIndex(p.cards, s.config.reyes8)];
       }
+      counts[p.seat] = `Tira ${discards.length}`;
       // Thrown cards go to the discard pile.
       p.cards.forEach((c, i) => { if (discards.includes(i)) discardPile.push(c); });
       const kept = p.cards.filter((_, i) => !discards.includes(i));
@@ -363,12 +364,16 @@ export const useMusStore = create<MusStore>((set, get) => {
       return { ...p, cards: [...kept, ...fresh] };
     });
 
+    // Brief "dealing" beat so players see how many each threw and the cards fly in.
     set({
-      players, deck, discardPile, phase: "mus", musActiveIdx: 0,
+      players, deck, discardPile, phase: "dealing", musActiveIdx: 0,
       musRound: s.musRound + 1, discardSelection: [], discardSelections: {}, discardConfirmed: [],
-      message: "Mus…", lastAction: null, seatActions: [null, null, null, null],
+      message: "Reparto…", lastAction: null, seatActions: counts,
     });
-    maybeBotMus();
+    schedule(() => {
+      set({ phase: "mus", seatActions: [null, null, null, null], message: "Mus…" });
+      maybeBotMus();
+    }, 1400);
   }
 
   // ── Lances ──
@@ -377,6 +382,45 @@ export const useMusStore = create<MusStore>((set, get) => {
   }
 
   function startLance(lance: Lance) {
+    // Pares & Juego open with a truthful declaration round.
+    if (lance === "pares" || lance === "juego") {
+      set({
+        phase: lance, currentLance: lance, declaring: lance, declaredSeats: [],
+        seatActions: [null, null, null, null],
+        message: lance === "pares" ? "¿Pares?" : "¿Juego?",
+      });
+      scheduleBotDeclarations();
+      return;
+    }
+    resolveLanceStart(lance);
+  }
+
+  function scheduleBotDeclarations() {
+    const s = get();
+    if (!s.isHost || !s.declaring) return;
+    s.players.forEach((p) => {
+      if (p.isHuman || s.declaredSeats.includes(p.seat)) return;
+      schedule(() => applyDeclare(p.seat), 450 + p.seat * 220);
+    });
+  }
+
+  function applyDeclare(seat: number) {
+    const s = get();
+    const lance = s.declaring;
+    if (!lance || s.declaredSeats.includes(seat)) return;
+    const ev = evaluateMusHand(s.players[seat].cards, s.config.reyes8);
+    const has = lance === "pares" ? ev.pares.category !== "none" : ev.juego.hasJuego;
+    const label = lance === "pares" ? (has ? "Pares" : "No") : (has ? "Juego" : "No");
+    const declaredSeats = [...s.declaredSeats, seat];
+    const seatActions = s.seatActions.slice();
+    seatActions[seat] = label;
+    set({ declaredSeats, seatActions, lastAction: { seat, text: label } });
+    if (declaredSeats.length >= 4) {
+      schedule(() => { set({ declaring: null }); resolveLanceStart(lance); }, 800);
+    }
+  }
+
+  function resolveLanceStart(lance: Lance) {
     const s = get();
     const rt = setupLance(lance, s.players, s.manoSeat, s.config.reyes8);
 
@@ -404,6 +448,19 @@ export const useMusStore = create<MusStore>((set, get) => {
     driveLance();
   }
 
+  /** Which bot (if any) should act now. null = it's a human's turn. */
+  function botToAct(rt: LanceRuntime, humanSeats: number[]): number | null {
+    if (rt.bet.envidoTeam === null) {
+      const seat = rt.order[rt.activeIdx]; // opening: sequential
+      return humanSeats.includes(seat) ? null : seat;
+    }
+    // Live envite: the opposing team responds; a human teammate takes priority.
+    const respondTeam: Team = rt.bet.envidoTeam === "A" ? "B" : "A";
+    const responders = rt.order.filter((s) => teamOfSeat(s) === respondTeam);
+    if (responders.some((s) => humanSeats.includes(s))) return null;
+    return responders[0] ?? null;
+  }
+
   function driveLance() {
     const s = get();
     const lance = s.currentLance;
@@ -411,16 +468,14 @@ export const useMusStore = create<MusStore>((set, get) => {
     const rt = s.lances[lance];
     if (!rt || rt.outcome) return;
     if (!s.isHost) return; // only host runs bots
-    const seat = rt.order[rt.activeIdx];
-    if (s.humanSeats.includes(seat)) return; // wait for a human
-    // Bot acts.
+    if (botToAct(rt, s.humanSeats) === null) return; // waiting for a human
     schedule(() => {
       const st = get();
       if (st.currentLance !== lance) return;
       const cur = st.lances[lance];
       if (!cur || cur.outcome) return;
-      const botSeat = cur.order[cur.activeIdx];
-      if (st.humanSeats.includes(botSeat)) return;
+      const botSeat = botToAct(cur, st.humanSeats);
+      if (botSeat === null) return;
       const p = st.players[botSeat];
       const team = teamOfSeat(botSeat);
       const decision = decideBet({
@@ -442,16 +497,24 @@ export const useMusStore = create<MusStore>((set, get) => {
     if (!lance) return;
     const rt = s.lances[lance];
     if (!rt || rt.outcome) return;
-    if (rt.order[rt.activeIdx] !== seat) return; // not your turn
 
     const team = teamOfSeat(seat);
-    const p = s.players[seat];
+    const liveEnvite = rt.bet.envidoTeam !== null && rt.bet.envidoTeam !== team;
+
+    // Validate the seat is entitled to act right now.
+    if (rt.bet.envidoTeam === null) {
+      if (rt.order[rt.activeIdx] !== seat) return; // opening: sequential
+    } else {
+      // A live envite: any participant of the OPPOSING team may respond.
+      if (!liveEnvite) return;               // your own team's live bet — wait
+      if (!rt.order.includes(seat)) return;  // must be a participant
+    }
+
     const newRt: LanceRuntime = { ...rt, bet: { ...rt.bet, chain: [...rt.bet.chain] } };
     let actionText = "";
 
-    const liveEnvite = rt.bet.envidoTeam !== null && rt.bet.envidoTeam !== team;
-
-    if (!liveEnvite) {
+    if (rt.bet.envidoTeam === null) {
+      // Opening round — sequential paso / envido / órdago.
       if (a.type === "paso") {
         actionText = "Paso";
         newRt.passesInRow = rt.passesInRow + 1;
@@ -466,26 +529,20 @@ export const useMusStore = create<MusStore>((set, get) => {
         newRt.bet.chain = [a.amount];
         newRt.bet.envidoTeam = team;
         newRt.passesInRow = 0;
-        const ni = nextOpposing(newRt, rt.activeIdx, team);
-        newRt.activeIdx = ni;
       } else if (a.type === "ordago") {
         actionText = "¡Órdago!";
         newRt.bet.chain = [9999];
         newRt.bet.envidoTeam = team;
         newRt.bet.isOrdago = true;
         newRt.passesInRow = 0;
-        const ni = nextOpposing(newRt, rt.activeIdx, team);
-        newRt.activeIdx = ni;
       }
     } else {
-      // Responding to a live envite.
+      // Responding to a live envite (whole opposing team may answer).
       if (a.type === "quiero") {
         actionText = "Quiero";
-        if (rt.bet.isOrdago) {
-          newRt.outcome = { kind: "ordago-quiero", envidoTeam: rt.bet.envidoTeam! };
-        } else {
-          newRt.outcome = { kind: "quiero", stake: rt.bet.chain[rt.bet.chain.length - 1], envidoTeam: rt.bet.envidoTeam! };
-        }
+        newRt.outcome = rt.bet.isOrdago
+          ? { kind: "ordago-quiero", envidoTeam: rt.bet.envidoTeam! }
+          : { kind: "quiero", stake: rt.bet.chain[rt.bet.chain.length - 1], envidoTeam: rt.bet.envidoTeam! };
         finishLance(seat, actionText, lance, newRt);
         return;
       } else if (a.type === "noquiero") {
@@ -501,23 +558,17 @@ export const useMusStore = create<MusStore>((set, get) => {
         return;
       } else if (a.type === "subir") {
         const last = rt.bet.chain[rt.bet.chain.length - 1] ?? 0;
-        const total = last + a.amount;
         actionText = `Veo y subo ${a.amount}`;
-        newRt.bet.chain = [...rt.bet.chain, total];
-        newRt.bet.envidoTeam = team;
-        const ni = nextOpposing(newRt, rt.activeIdx, team);
-        newRt.activeIdx = ni;
+        newRt.bet.chain = [...rt.bet.chain, last + a.amount];
+        newRt.bet.envidoTeam = team; // now the other team must respond
       } else if (a.type === "ordago") {
         actionText = "¡Órdago!";
         newRt.bet.chain = [...rt.bet.chain, 9999];
         newRt.bet.envidoTeam = team;
         newRt.bet.isOrdago = true;
-        const ni = nextOpposing(newRt, rt.activeIdx, team);
-        newRt.activeIdx = ni;
       }
     }
 
-    void p;
     const seatActions = s.seatActions.slice();
     seatActions[seat] = actionText;
     set({
@@ -669,6 +720,18 @@ export const useMusStore = create<MusStore>((set, get) => {
       else onlineSend?.(s.localSeat, { t: "discard", discards: s.discardSelection });
     },
 
+    declare: () => {
+      const s = get();
+      if (!s.declaring || s.declaredSeats.includes(s.localSeat)) return;
+      if (s.isHost) get().submitDeclare(s.localSeat);
+      else onlineSend?.(s.localSeat, { t: "declare" });
+    },
+
+    submitDeclare: (seat) => {
+      if (!get().isHost) return;
+      applyDeclare(seat);
+    },
+
     humanBet: (a) => {
       const s = get();
       if (s.isHost) get().submitBet(s.localSeat, a);
@@ -693,14 +756,8 @@ export const useMusStore = create<MusStore>((set, get) => {
     },
 
     submitBet: (seat, a) => {
-      const s = get();
-      if (!s.isHost) return;
-      const lance = s.currentLance;
-      if (!lance) return;
-      const rt = s.lances[lance];
-      if (!rt || rt.outcome) return;
-      if (rt.order[rt.activeIdx] !== seat) return;
-      applyBet(seat, a);
+      if (!get().isHost) return;
+      applyBet(seat, a); // applyBet validates the seat is entitled to act
     },
 
     submitDiscard: (seat, discards) => {
@@ -762,7 +819,8 @@ export const useMusStore = create<MusStore>((set, get) => {
         phase: s.phase, humanSeats: s.humanSeats, roomCode: s.roomCode,
         musActiveIdx: s.musActiveIdx, discardSelections: s.discardSelections,
         discardConfirmed: s.discardConfirmed, musRound: s.musRound,
-        lances: s.lances, currentLance: s.currentLance, handScores: s.handScores,
+        lances: s.lances, currentLance: s.currentLance, declaring: s.declaring,
+        declaredSeats: s.declaredSeats, handScores: s.handScores,
         score: s.score, vacas: s.vacas, reveal: s.reveal, seatActions: s.seatActions,
         lastAction: s.lastAction, message: s.message, winnerTeam: s.winnerTeam,
         ordagoVaca: s.ordagoVaca,

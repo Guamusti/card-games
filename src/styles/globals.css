@@ -170,13 +170,13 @@ body {
 }
 
 /* ───── Mus (Spanish deck) card sizes ───── */
-.mus-card { width: 3.6rem; height: 5.3rem; }
-.mus-card-sm { width: 2.5rem; height: 3.7rem; }
-.mus-card-mini { width: 1.7rem; height: 2.5rem; }
+.mus-card { width: 4.8rem; height: 7.1rem; }
+.mus-card-sm { width: 3.5rem; height: 5.2rem; }
+.mus-card-mini { width: 2.3rem; height: 3.4rem; }
 @media (min-width: 640px) {
-  .mus-card { width: 4.4rem; height: 6.4rem; }
-  .mus-card-sm { width: 3rem; height: 4.4rem; }
-  .mus-card-mini { width: 2rem; height: 2.9rem; }
+  .mus-card { width: 5.4rem; height: 8rem; }
+  .mus-card-sm { width: 4rem; height: 5.9rem; }
+  .mus-card-mini { width: 2.6rem; height: 3.8rem; }
 }
 
 /* ───── Animations ───── */

@@ -46,18 +46,18 @@ export const RANK_LABEL: Record<SpanishRank, string> = {
   12: "Rey",
 };
 
-/** Short label for a rank used on the card face (A, 2..7, S, C, R). */
+/** Numeric label used on the card face — as on a real Spanish deck (1..7, 10, 11, 12). */
 export const RANK_SHORT: Record<SpanishRank, string> = {
-  1: "A",
+  1: "1",
   2: "2",
   3: "3",
   4: "4",
   5: "5",
   6: "6",
   7: "7",
-  10: "S",
-  11: "C",
-  12: "R",
+  10: "10",
+  11: "11",
+  12: "12",
 };
 
 // ─── The four lances ─────────────────────────────────────────
