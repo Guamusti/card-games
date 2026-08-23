@@ -85,7 +85,7 @@ export interface MusState {
 
 interface MusActions {
   startSolo: (config?: Partial<MusConfig>) => void;
-  voteMus: (mus: boolean) => void;
+  voteMus: (mus: boolean, label?: string) => void;
   toggleDiscard: (index: number) => void;
   confirmDiscard: () => void;
   declare: () => void;
@@ -96,7 +96,7 @@ interface MusActions {
   // ── Online (host-authoritative) ──
   startOnlineHost: (config: MusConfig, humanSeats: number[], names: Record<number, string>, localSeat: number, roomCode: string) => void;
   startOnlineClient: (localSeat: number, roomCode: string) => void;
-  submitMusVote: (seat: number, mus: boolean) => void;
+  submitMusVote: (seat: number, mus: boolean, label?: string) => void;
   submitBet: (seat: number, a: HumanBetAction) => void;
   submitDiscard: (seat: number, discards: number[]) => void;
   submitNextHand: (seat: number) => void;
@@ -107,7 +107,7 @@ interface MusActions {
 
 /** Client → host network intents (online mode). */
 export type MusNetAction =
-  | { t: "mus"; mus: boolean }
+  | { t: "mus"; mus: boolean; label?: string }
   | { t: "bet"; a: HumanBetAction }
   | { t: "discard"; discards: number[] }
   | { t: "declare" }
@@ -121,6 +121,7 @@ export function setOnlineSend(fn: ((seat: number, action: MusNetAction) => void)
 
 export type HumanBetAction =
   | { type: "paso" }
+  | { type: "hasta" }
   | { type: "envido"; amount: number }
   | { type: "ordago" }
   | { type: "quiero" }
@@ -300,13 +301,13 @@ export const useMusStore = create<MusStore>((set, get) => {
     }, 650);
   }
 
-  function applyMusVote(mus: boolean) {
+  function applyMusVote(mus: boolean, label?: string) {
     const s = get();
     if (s.phase !== "mus") return;
     const seat = manoOrder(s.manoSeat)[s.musActiveIdx];
     if (!mus) {
       // Someone cuts → betting begins.
-      recordAction(seat, "No hay mus", { message: null });
+      recordAction(seat, label || "No hay mus", { message: null });
       schedule(() => beginLances(), 600);
       return;
     }
@@ -515,8 +516,8 @@ export const useMusStore = create<MusStore>((set, get) => {
 
     if (rt.bet.envidoTeam === null) {
       // Opening round — sequential paso / envido / órdago.
-      if (a.type === "paso") {
-        actionText = "Paso";
+      if (a.type === "paso" || a.type === "hasta") {
+        actionText = a.type === "hasta" ? "Hasta ahí" : "Paso";
         newRt.passesInRow = rt.passesInRow + 1;
         if (newRt.passesInRow >= rt.order.length) {
           newRt.outcome = { kind: "paso" };
@@ -697,10 +698,10 @@ export const useMusStore = create<MusStore>((set, get) => {
     },
 
     // ── Local player actions (route to host when online client) ──
-    voteMus: (mus) => {
+    voteMus: (mus, label) => {
       const s = get();
-      if (s.isHost) get().submitMusVote(s.localSeat, mus);
-      else onlineSend?.(s.localSeat, { t: "mus", mus });
+      if (s.isHost) get().submitMusVote(s.localSeat, mus, label);
+      else onlineSend?.(s.localSeat, { t: "mus", mus, label });
     },
 
     toggleDiscard: (index) => {
@@ -747,12 +748,12 @@ export const useMusStore = create<MusStore>((set, get) => {
     reset: () => { setOnlineSend(null); set({ ...initialState() }); },
 
     // ── Authoritative reducers (run on host) ──
-    submitMusVote: (seat, mus) => {
+    submitMusVote: (seat, mus, label) => {
       const s = get();
       if (!s.isHost || s.phase !== "mus") return;
       const active = manoOrder(s.manoSeat)[s.musActiveIdx];
       if (active !== seat) return; // not this seat's turn
-      applyMusVote(mus);
+      applyMusVote(mus, label);
     },
 
     submitBet: (seat, a) => {

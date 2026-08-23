@@ -201,7 +201,7 @@ class MusRoom {
   private applyClientAction(seat: number, action: MusNetAction) {
     const store = useMusStore.getState();
     switch (action.t) {
-      case "mus": store.submitMusVote(seat, action.mus); break;
+      case "mus": store.submitMusVote(seat, action.mus, action.label); break;
       case "bet": store.submitBet(seat, action.a); break;
       case "discard": store.submitDiscard(seat, action.discards); break;
       case "declare": store.submitDeclare(seat); break;
