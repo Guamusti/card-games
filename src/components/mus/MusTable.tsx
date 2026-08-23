@@ -108,7 +108,7 @@ export default function MusTable() {
             <div className="grid grid-cols-3 gap-2 w-full max-w-sm">
               <button onClick={() => s.voteMus(true)} className="rounded-xl border border-foreground bg-foreground text-background px-4 py-3.5 text-sm font-medium active:scale-95 transition">Mus</button>
               <button onClick={() => s.voteMus(false)} className="rounded-xl border border-border px-4 py-3.5 text-sm font-medium text-muted hover:text-foreground hover:border-foreground active:scale-95 transition">No hay mus</button>
-              <button onClick={() => s.voteMus(false, "Hasta ahí")} className="rounded-xl border border-border px-3 py-3.5 text-sm font-medium text-muted hover:text-foreground hover:border-foreground active:scale-95 transition">Hasta mi compañero</button>
+              <button onClick={() => s.voteMus(false, "Hasta mi compañero")} className="rounded-xl border border-border px-3 py-3.5 text-sm font-medium text-muted hover:text-foreground hover:border-foreground active:scale-95 transition">Hasta mi compañero</button>
             </div>
           )}
 

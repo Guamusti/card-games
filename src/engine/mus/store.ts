@@ -308,6 +308,18 @@ export const useMusStore = create<MusStore>((set, get) => {
     const s = get();
     if (s.phase !== "mus") return;
     const seat = manoOrder(s.manoSeat)[s.musActiveIdx];
+
+    // This is not a "No hay mus": the player explicitly leaves the
+    // decision to their partner, who gets the next available choice.
+    if (label === "Hasta mi compañero") {
+      const partnerSeat = (seat + 2) % 4;
+      const partnerIdx = manoOrder(s.manoSeat).indexOf(partnerSeat);
+      recordAction(seat, label);
+      set({ musActiveIdx: partnerIdx, message: "Decide el compañero" });
+      maybeBotMus();
+      return;
+    }
+
     if (!mus) {
       const ranks = s.players[seat].cards.map((card) => card.rank).sort((a, b) => a - b);
       const isPerete = ranks.length === 4 && ranks.every((rank, index) => rank === index + 4);
