@@ -51,10 +51,11 @@ export default function MusCard({
   }
 
   return (
-    <motion.button type="button" onClick={onClick} disabled={!onClick} initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: dimmed ? 0.4 : 1, scale: 1, y: selected ? -12 : 0 }} transition={{ duration: dur, delay, ease: [0.22, 1, 0.36, 1] }} className={`${sizeClass} relative rounded-md border bg-[#fbfaf6] flex flex-col justify-between select-none transition-colors ${selected ? "border-accent ring-2 ring-accent" : "border-black/15"} ${showCardShadow ? "shadow-sm" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`} style={{ padding: mini ? 2 : small ? 3 : 4 }} title={`${RANK_SHORT[card.rank]} de ${SUIT_NAME[card.suit]}`}>
-      <div className="flex items-center gap-0.5 leading-none" style={{ color }}><span className="font-bold" style={{ fontSize: pipSize }}>{rank}</span><SpanishSuit suit={card.suit} size={pipSize} /></div>
-      <div className="flex items-center justify-center flex-1 pointer-events-none"><SpanishSuit suit={card.suit} size={centerSize} /></div>
-      <div className="flex items-center justify-end gap-0.5 leading-none rotate-180" style={{ color }}><span className="font-bold" style={{ fontSize: pipSize }}>{rank}</span><SpanishSuit suit={card.suit} size={pipSize} /></div>
+    <motion.button type="button" onClick={onClick} disabled={!onClick} initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: dimmed ? 0.4 : 1, scale: 1, y: selected ? -12 : 0 }} transition={{ duration: dur, delay, ease: [0.22, 1, 0.36, 1] }} className={`${sizeClass} relative overflow-hidden rounded-[0.65rem] border bg-[#f8f5ec] flex flex-col justify-between select-none transition-colors ${selected ? "border-accent ring-2 ring-accent" : "border-[#c9c2b5]"} ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.18)]" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`} style={{ padding: mini ? 2 : small ? 3 : 4 }} title={`${RANK_SHORT[card.rank]} de ${SUIT_NAME[card.suit]}`}>
+      <div aria-hidden className="pointer-events-none absolute inset-[3px] rounded-[0.45rem] border border-[#d9d1c2]" />
+      <div className="relative flex items-center gap-0.5 leading-none" style={{ color }}><span className="font-semibold tracking-[-0.08em]" style={{ fontSize: pipSize }}>{rank}</span><SpanishSuit suit={card.suit} size={pipSize} /></div>
+      <div className="relative flex items-center justify-center flex-1 pointer-events-none"><SpanishSuit suit={card.suit} size={centerSize} /></div>
+      <div className="relative flex items-center justify-end gap-0.5 leading-none rotate-180" style={{ color }}><span className="font-semibold tracking-[-0.08em]" style={{ fontSize: pipSize }}>{rank}</span><SpanishSuit suit={card.suit} size={pipSize} /></div>
     </motion.button>
   );
 }

@@ -13,11 +13,11 @@ import LanceBar from "./LanceBar";
 import { useCustomizeStore, type TableFelt } from "@/engine/customize/store";
 
 const FELT_BACKGROUND: Record<TableFelt, string> = {
-  none: "radial-gradient(115% 95% at 50% 40%, #263237 0%, #172126 52%, #0d1417 100%)",
-  subtle: "radial-gradient(115% 95% at 50% 40%, #303b3e 0%, #1b2528 52%, #101719 100%)",
-  green: "radial-gradient(115% 95% at 50% 40%, #244238 0%, #162b26 52%, #0c1715 100%)",
-  blue: "radial-gradient(115% 95% at 50% 40%, #263c4b 0%, #172832 52%, #0d171d 100%)",
-  wine: "radial-gradient(115% 95% at 50% 40%, #442c36 0%, #2d1c25 52%, #181016 100%)",
+  none: "radial-gradient(110% 92% at 50% 44%, #294044 0%, #1a2b30 55%, #10191d 100%)",
+  subtle: "radial-gradient(110% 92% at 50% 44%, #30494a 0%, #1c3032 55%, #111b1d 100%)",
+  green: "radial-gradient(110% 92% at 50% 44%, #29483b 0%, #193027 55%, #101b17 100%)",
+  blue: "radial-gradient(110% 92% at 50% 44%, #294555 0%, #192e39 55%, #101b22 100%)",
+  wine: "radial-gradient(110% 92% at 50% 44%, #4a3039 0%, #301e27 55%, #1b1117 100%)",
 };
 
 export default function MusTable() {
@@ -72,8 +72,10 @@ export default function MusTable() {
           className="relative rounded-[1.75rem] border border-white/10 flex-1 min-h-[300px] max-h-[440px] overflow-hidden shadow-[0_18px_45px_rgba(9,14,16,0.2)]"
           style={{ background: FELT_BACKGROUND[tableFelt] }}
         >
-          <div aria-hidden className="pointer-events-none absolute inset-2 rounded-[1.3rem] border border-white/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),inset_0_0_45px_rgba(0,0,0,0.16)]" />
-          <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.16]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.18) 0.55px, transparent 0.7px)", backgroundSize: "5px 5px" }} />
+          <div aria-hidden className="pointer-events-none absolute inset-2 rounded-[1.3rem] border border-white/[0.11] shadow-[inset_0_1px_0_rgba(255,255,255,0.05),inset_0_0_55px_rgba(0,0,0,0.22)]" />
+          <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 h-[44%] w-[62%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border border-white/[0.09]" />
+          <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 h-[30%] w-[43%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border border-white/[0.05]" />
+          <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.09]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.25) 0.5px, transparent 0.7px)", backgroundSize: "6px 6px" }} />
           {/* Partner (top) */}
           <div className="absolute top-3 left-1/2 -translate-x-1/2">
             <SeatView player={partner} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[partner.seat]} active={activeSeats.includes(partner.seat)} round={s.musRound} />

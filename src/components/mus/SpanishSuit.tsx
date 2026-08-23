@@ -3,10 +3,10 @@
 import type { SpanishSuit } from "@/engine/mus/types";
 
 export const SUIT_COLOR: Record<SpanishSuit, string> = {
-  oros: "#c99a2e",
-  copas: "#c0392b",
-  espadas: "#2f6fb0",
-  bastos: "#3a8a4d",
+  oros: "#ad7a1d",
+  copas: "#ad3933",
+  espadas: "#2c649e",
+  bastos: "#3f7657",
 };
 
 export const NEON_SUIT_COLOR: Record<SpanishSuit, string> = {
