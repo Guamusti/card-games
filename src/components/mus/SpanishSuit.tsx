@@ -9,14 +9,22 @@ export const SUIT_COLOR: Record<SpanishSuit, string> = {
   bastos: "#3a8a4d",
 };
 
+export const NEON_SUIT_COLOR: Record<SpanishSuit, string> = {
+  oros: "#f2df36",
+  copas: "#ff706b",
+  espadas: "#78d8f5",
+  bastos: "#8bd650",
+};
+
 interface Props {
   suit: SpanishSuit;
   size?: number;
   className?: string;
+  theme?: "classic" | "neon";
 }
 
-export default function SpanishSuit({ suit, size = 24, className }: Props) {
-  const color = SUIT_COLOR[suit];
+export default function SpanishSuit({ suit, size = 24, className, theme = "classic" }: Props) {
+  const color = theme === "neon" ? NEON_SUIT_COLOR[suit] : SUIT_COLOR[suit];
   const common = { width: size, height: size, viewBox: "0 0 24 24", className, style: { color } } as const;
 
   switch (suit) {

@@ -29,7 +29,7 @@ export default function MusTable() {
   const rt = s.currentLance ? s.lances[s.currentLance] : null;
   const liveEnviteForUs = !!rt && rt.bet.envidoTeam !== null && rt.bet.envidoTeam !== myTeam;
   const openingTurnMe = !!rt && !rt.outcome && rt.bet.envidoTeam === null && rt.order[rt.activeIdx] === me;
-  const respondTurnMe = !!rt && !rt.outcome && liveEnviteForUs && rt.order.includes(me) && s.humanSeats.includes(me);
+  const respondTurnMe = !!rt && !rt.outcome && liveEnviteForUs && rt.order.includes(me) && s.humanSeats.includes(me) && !(rt.responsePassedSeats ?? []).includes(me);
   const humanTurnInLance = openingTurnMe || respondTurnMe;
   const currentStake = rt ? (rt.bet.chain[rt.bet.chain.length - 1] ?? 0) : 0;
   const musOrder = [0, 1, 2, 3].map((i) => (s.manoSeat + i) % 4);
@@ -44,7 +44,7 @@ export default function MusTable() {
     if (rt.bet.envidoTeam === null) activeSeats = [rt.order[rt.activeIdx]];
     else {
       const respondTeam = rt.bet.envidoTeam === "A" ? "B" : "A";
-      activeSeats = rt.order.filter((se) => teamOfSeat(se) === respondTeam);
+      activeSeats = rt.order.filter((se) => teamOfSeat(se) === respondTeam && !(rt.responsePassedSeats ?? []).includes(se));
     }
   }
 

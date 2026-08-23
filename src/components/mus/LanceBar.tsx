@@ -49,6 +49,7 @@ export default function LanceBar({ mode, currentStake, onBet }: LanceBarProps) {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
+          <Btn variant="ghost" onClick={() => onBet({ type: "paso" })}>Paso</Btn>
           <Btn variant="ghost" onClick={() => onBet({ type: "noquiero" })}>No quiero</Btn>
           <Btn variant="correct" onClick={() => onBet({ type: "quiero" })}>Quiero ({currentStake})</Btn>
           <Btn onClick={() => setShowEnvido(true)}>Veo y subo</Btn>

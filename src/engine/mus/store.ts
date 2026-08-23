@@ -39,6 +39,8 @@ interface LanceRuntime {
   activeIdx: number;
   bet: Bet;
   passesInRow: number;
+  /** Players on the responding team who defer the live envite to their partner. */
+  responsePassedSeats: number[];
   outcome: LanceOutcome | null;
   contested: boolean;
   isPunto: boolean;       // for the juego slot when nobody has juego
@@ -208,6 +210,7 @@ function setupLance(lance: Lance, players: MusPlayer[], manoSeat: number, reyes8
     activeIdx: 0,
     bet: { chain: [], envidoTeam: null, isOrdago: false },
     passesInRow: 0,
+    responsePassedSeats: [],
     outcome: null,
     contested,
     isPunto,
@@ -463,7 +466,7 @@ export const useMusStore = create<MusStore>((set, get) => {
     }
     // Live envite: the opposing team responds; a human teammate takes priority.
     const respondTeam: Team = rt.bet.envidoTeam === "A" ? "B" : "A";
-    const responders = rt.order.filter((s) => teamOfSeat(s) === respondTeam);
+    const responders = rt.order.filter((s) => teamOfSeat(s) === respondTeam && !(rt.responsePassedSeats ?? []).includes(s));
     if (responders.some((s) => humanSeats.includes(s))) return null;
     return responders[0] ?? null;
   }
@@ -515,6 +518,7 @@ export const useMusStore = create<MusStore>((set, get) => {
       // A live envite: any participant of the OPPOSING team may respond.
       if (!liveEnvite) return;               // your own team's live bet — wait
       if (!rt.order.includes(seat)) return;  // must be a participant
+      if ((rt.responsePassedSeats ?? []).includes(seat)) return; // this player already left it to their partner
     }
 
     const newRt: LanceRuntime = { ...rt, bet: { ...rt.bet, chain: [...rt.bet.chain] } };
@@ -545,7 +549,21 @@ export const useMusStore = create<MusStore>((set, get) => {
       }
     } else {
       // Responding to a live envite (whole opposing team may answer).
-      if (a.type === "quiero") {
+      if (a.type === "paso") {
+        actionText = "Paso";
+        const responseSeats = rt.order.filter((s) => teamOfSeat(s) === team);
+        newRt.responsePassedSeats = [...new Set([...(rt.responsePassedSeats ?? []), seat])];
+        // Both partners have passed: it is equivalent to declining the envite.
+        if (responseSeats.every((responder) => newRt.responsePassedSeats.includes(responder))) {
+          if (rt.bet.isOrdago) newRt.outcome = { kind: "ordago-noquiero", envidoTeam: rt.bet.envidoTeam! };
+          else {
+            const chain = rt.bet.chain;
+            newRt.outcome = { kind: "noquiero", payout: chain.length >= 2 ? chain[chain.length - 2] : 1, envidoTeam: rt.bet.envidoTeam! };
+          }
+          finishLance(seat, actionText, lance, newRt);
+          return;
+        }
+      } else if (a.type === "quiero") {
         actionText = "Quiero";
         newRt.outcome = rt.bet.isOrdago
           ? { kind: "ordago-quiero", envidoTeam: rt.bet.envidoTeam! }
@@ -568,11 +586,13 @@ export const useMusStore = create<MusStore>((set, get) => {
         actionText = `Veo y subo ${a.amount}`;
         newRt.bet.chain = [...rt.bet.chain, last + a.amount];
         newRt.bet.envidoTeam = team; // now the other team must respond
+        newRt.responsePassedSeats = [];
       } else if (a.type === "ordago") {
         actionText = "¡Órdago!";
         newRt.bet.chain = [...rt.bet.chain, 9999];
         newRt.bet.envidoTeam = team;
         newRt.bet.isOrdago = true;
+        newRt.responsePassedSeats = [];
       }
     }
 
