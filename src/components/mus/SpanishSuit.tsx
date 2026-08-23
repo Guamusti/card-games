@@ -3,10 +3,10 @@
 import type { SpanishSuit } from "@/engine/mus/types";
 
 export const SUIT_COLOR: Record<SpanishSuit, string> = {
-  oros: "#ad7a1d",
-  copas: "#ad3933",
-  espadas: "#2c649e",
-  bastos: "#3f7657",
+  oros: "#b8860f",
+  copas: "#a82f2a",
+  espadas: "#255a92",
+  bastos: "#37704f",
 };
 
 export const NEON_SUIT_COLOR: Record<SpanishSuit, string> = {
@@ -23,18 +23,51 @@ interface Props {
   theme?: "classic" | "neon";
 }
 
+/**
+ * Spanish-deck suit marks, drawn as solid silhouettes so they stay legible
+ * down to ~10px (corner indices) and still hold detail at pip size.
+ */
 export default function SpanishSuit({ suit, size = 24, className, theme = "classic" }: Props) {
   const color = theme === "neon" ? NEON_SUIT_COLOR[suit] : SUIT_COLOR[suit];
-  const common = { width: size, height: size, viewBox: "0 0 24 24", className, style: { color } } as const;
+  const common = { width: size, height: size, viewBox: "0 0 24 24", className, style: { color }, fill: "currentColor" } as const;
 
   switch (suit) {
+    // Coin: milled rim, inner ring and a four-point rosette.
     case "oros":
-      return <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /></svg>;
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="10.2" fill="currentColor" opacity="0.16" />
+          <circle cx="12" cy="12" r="10.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <circle cx="12" cy="12" r="6.9" fill="none" stroke="currentColor" strokeWidth="0.9" />
+          <path d="M12 4.9 l1.55 5.56 5.56 1.55 -5.56 1.55 -1.55 5.56 -1.55 -5.56 -5.56 -1.55 5.56 -1.55Z" />
+        </svg>
+      );
+    // Chalice: wide bowl, stem and footed base.
     case "copas":
-      return <svg {...common} fill="currentColor"><path d="M6 3.5 H18 V6.5 A6 5.2 0 0 1 6 6.5 Z" /><rect x="11.1" y="11" width="1.8" height="6.5" rx="0.6" /><ellipse cx="12" cy="18.6" rx="5" ry="1.5" /></svg>;
+      return (
+        <svg {...common}>
+          <path d="M4.4 2.6 H19.6 V5.7 C19.6 10.2 16.8 13.4 13.2 13.9 V17.9 H16.4 V19.6 H7.6 V17.9 H10.8 V13.9 C7.2 13.4 4.4 10.2 4.4 5.7 Z" />
+          <ellipse cx="12" cy="20.6" rx="6.4" ry="1.6" />
+        </svg>
+      );
+    // Sword: tapered blade, straight crossguard, grip and round pommel.
     case "espadas":
-      return <svg {...common} fill="currentColor"><path d="M12 2 L13.4 6 V13 H10.6 V6 Z" /><rect x="6.5" y="13" width="11" height="1.9" rx="0.9" /><rect x="11.1" y="14.9" width="1.8" height="4.6" rx="0.6" /><circle cx="12" cy="20.4" r="1.6" /></svg>;
+      return (
+        <svg {...common}>
+          <path d="M12 1.4 L14.2 6.4 V12.3 H9.8 V6.4 Z" />
+          <rect x="4.3" y="12.3" width="15.4" height="2.3" rx="1.15" />
+          <rect x="10.8" y="14.6" width="2.4" height="4.2" />
+          <circle cx="12" cy="20.3" r="2" />
+        </svg>
+      );
+    // Club: knotted cudgel on the diagonal.
     case "bastos":
-      return <svg {...common} fill="none" stroke="currentColor" strokeWidth={3.2} strokeLinecap="round"><path d="M6.5 19 L16 6.5" /><path d="M8.8 16 l2.4 1.6" strokeWidth={2} /><path d="M12 11 l2.4 1.6" strokeWidth={2} /></svg>;
+      return (
+        <svg {...common}>
+          <path d="M4.4 18.2 L16.5 3.9 a2.5 2.5 0 0 1 3.6 3.4 L6.7 20.6 a1.7 1.7 0 0 1 -2.3 -2.4 Z" />
+          <path d="M6.9 13.2 l3.4 2.8 -1.7 2 -3.4 -2.8 Z" />
+          <path d="M11.6 7.8 l3.4 2.8 -1.7 2 -3.4 -2.8 Z" />
+        </svg>
+      );
   }
 }

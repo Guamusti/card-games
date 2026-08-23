@@ -1,9 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { SpanishCard } from "@/engine/mus/types";
-import { RANK_SHORT, SUIT_NAME } from "@/engine/mus/types";
-import SpanishSuit, { SUIT_COLOR } from "./SpanishSuit";
+import type { SpanishCard, SpanishRank } from "@/engine/mus/types";
+import { RANK_SHORT, RANK_LABEL, SUIT_NAME } from "@/engine/mus/types";
+import SpanishSuit, { SUIT_COLOR, NEON_SUIT_COLOR } from "./SpanishSuit";
+import MusFigure from "./MusFigure";
 import { useCustomizeStore } from "@/engine/customize/store";
 
 interface MusCardProps {
@@ -17,45 +18,123 @@ interface MusCardProps {
   onClick?: () => void;
 }
 
+/**
+ * Pip positions (percentages of the card body) for the numbered ranks,
+ * following the layout used on a real Spanish deck.
+ */
+const PIP_LAYOUT: Partial<Record<SpanishRank, [number, number][]>> = {
+  1: [[50, 50]],
+  2: [[50, 22], [50, 78]],
+  3: [[50, 17], [50, 50], [50, 83]],
+  4: [[27, 21], [73, 21], [27, 79], [73, 79]],
+  5: [[27, 19], [73, 19], [50, 50], [27, 81], [73, 81]],
+  6: [[27, 17], [73, 17], [27, 50], [73, 50], [27, 83], [73, 83]],
+  7: [[27, 16], [73, 16], [50, 33], [27, 51], [73, 51], [27, 84], [73, 84]],
+};
+
 export default function MusCard({
   card, hidden = false, delay = 0, small = false, mini = false, selected = false, dimmed = false, onClick,
 }: MusCardProps) {
   const { showCardShadow, animationSpeed, musDeckTheme } = useCustomizeStore();
+  const neon = musDeckTheme === "neon";
   const dur = animationSpeed === "fast" ? 0.28 : animationSpeed === "slow" ? 0.55 : 0.38;
   const sizeClass = mini ? "mus-card-mini" : small ? "mus-card-sm" : "mus-card";
 
+  // ── Face down ─────────────────────────────────────────────
   if (hidden || !card) {
+    const lattice = neon
+      ? "repeating-linear-gradient(45deg, rgba(120,216,245,0.16) 0 2px, transparent 2px 7px), repeating-linear-gradient(-45deg, rgba(120,216,245,0.16) 0 2px, transparent 2px 7px)"
+      : "repeating-linear-gradient(45deg, rgba(255,255,255,0.10) 0 2px, transparent 2px 7px), repeating-linear-gradient(-45deg, rgba(255,255,255,0.10) 0 2px, transparent 2px 7px)";
     return (
-      <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: dur, delay, ease: [0.22, 1, 0.36, 1] }} className={`${sizeClass} rounded-md border border-white/15 flex items-center justify-center select-none`} style={{ background: "repeating-linear-gradient(45deg, #7a1420 0 6px, #641019 6px 12px)" }}>
-        <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.85 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: dur, delay, ease: [0.22, 1, 0.36, 1] }}
+        className={`${sizeClass} relative overflow-hidden rounded-[0.65rem] border select-none ${neon ? "border-white/20" : "border-[#5f121b]"} ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.22)]" : ""}`}
+        style={{ background: neon ? "#0a0d10" : "#8a1f2a" }}
+      >
+        <div aria-hidden className="absolute inset-0" style={{ backgroundImage: lattice }} />
+        <div aria-hidden className={`absolute rounded-[0.42rem] border ${neon ? "border-white/20" : "border-white/30"}`} style={{ inset: mini ? 3 : 4 }} />
+        <div aria-hidden className="absolute inset-0 flex items-center justify-center">
+          <div className={`rotate-45 border ${neon ? "border-[#78d8f5]/50" : "border-white/35"}`} style={{ width: mini ? 10 : small ? 16 : 22, height: mini ? 10 : small ? 16 : 22 }} />
+        </div>
       </motion.div>
     );
   }
 
-  const color = SUIT_COLOR[card.suit];
+  const color = neon ? NEON_SUIT_COLOR[card.suit] : SUIT_COLOR[card.suit];
   const rank = RANK_SHORT[card.rank];
-  const pipSize = mini ? 9 : small ? 13 : 20;
-  const centerSize = mini ? 20 : small ? 30 : 46;
+  const isFigure = card.rank >= 10;
+  const indexSize = mini ? 8 : small ? 11 : 14;
+  const cornerSuit = mini ? 7 : small ? 9 : 11;
+  const title = `${RANK_LABEL[card.rank]} de ${SUIT_NAME[card.suit]}`;
 
-  if (musDeckTheme === "neon") {
-    const neonSize = mini ? 17 : small ? 24 : 34;
-    const pips = card.rank <= 7 ? card.rank : 1;
-    return (
-      <motion.button type="button" onClick={onClick} disabled={!onClick} initial={{ opacity: 0, scale: 0.58, x: 28, y: -82, rotate: 9 }} animate={{ opacity: dimmed ? 0.4 : 1, scale: 1, x: 0, y: selected ? -12 : 0, rotate: selected ? -2 : 0 }} transition={{ duration: dur * 1.35, delay, ease: [0.16, 1, 0.3, 1] }} className={`${sizeClass} relative overflow-hidden rounded-[0.8rem] border bg-[#080909] flex flex-col justify-between select-none transition-colors ${selected ? "border-white ring-2 ring-white/70" : "border-white/25"} ${showCardShadow ? "shadow-sm" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`} style={{ padding: mini ? 2 : small ? 3 : 4 }} title={`${RANK_SHORT[card.rank]} de ${SUIT_NAME[card.suit]}`}>
-        <div className="absolute inset-1 rounded-[0.55rem] border border-dashed opacity-80" style={{ borderColor: `${color}cc` }} />
-        <div className="relative leading-none" style={{ color }}><span className="font-light" style={{ fontSize: pipSize }}>{rank}</span></div>
-        <div className="relative grid flex-1 grid-cols-2 content-center items-center justify-items-center gap-0.5 px-1 pointer-events-none">{Array.from({ length: pips }, (_, index) => <SpanishSuit key={index} suit={card.suit} size={neonSize} theme="neon" />)}</div>
-        <div className="relative flex justify-end leading-none rotate-180" style={{ color }}><span className="font-light" style={{ fontSize: pipSize }}>{rank}</span></div>
-      </motion.button>
-    );
-  }
+  // Mini cards drop the pip layout — at that size only one clear mark reads.
+  const body = mini ? (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <SpanishSuit suit={card.suit} size={18} theme={musDeckTheme} />
+    </div>
+  ) : isFigure ? (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <MusFigure rank={card.rank} height={small ? 34 : 46} color={color} />
+    </div>
+  ) : (
+    <div className="absolute inset-0 pointer-events-none">
+      {(PIP_LAYOUT[card.rank] ?? []).map(([x, y], i) => (
+        <span key={i} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${x}%`, top: `${y}%` }}>
+          <SpanishSuit
+            suit={card.suit}
+            size={card.rank <= 3 ? (small ? 19 : 25) : small ? 12 : 16}
+            theme={musDeckTheme}
+          />
+        </span>
+      ))}
+    </div>
+  );
+
+  const cornerIndex = (rotated: boolean) => (
+    <div
+      className={`absolute flex flex-col items-center leading-none ${rotated ? "rotate-180" : ""}`}
+      style={{ color, [rotated ? "right" : "left"]: mini ? 2 : 4, [rotated ? "bottom" : "top"]: mini ? 2 : 3 }}
+    >
+      <span className="font-semibold tracking-[-0.06em]" style={{ fontSize: indexSize }}>{rank}</span>
+      <SpanishSuit suit={card.suit} size={cornerSuit} theme={musDeckTheme} />
+    </div>
+  );
 
   return (
-    <motion.button type="button" onClick={onClick} disabled={!onClick} initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: dimmed ? 0.4 : 1, scale: 1, y: selected ? -12 : 0 }} transition={{ duration: dur, delay, ease: [0.22, 1, 0.36, 1] }} className={`${sizeClass} relative overflow-hidden rounded-[0.65rem] border bg-[#f8f5ec] flex flex-col justify-between select-none transition-colors ${selected ? "border-accent ring-2 ring-accent" : "border-[#c9c2b5]"} ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.18)]" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`} style={{ padding: mini ? 2 : small ? 3 : 4 }} title={`${RANK_SHORT[card.rank]} de ${SUIT_NAME[card.suit]}`}>
-      <div aria-hidden className="pointer-events-none absolute inset-[3px] rounded-[0.45rem] border border-[#d9d1c2]" />
-      <div className="relative flex items-center gap-0.5 leading-none" style={{ color }}><span className="font-semibold tracking-[-0.08em]" style={{ fontSize: pipSize }}>{rank}</span><SpanishSuit suit={card.suit} size={pipSize} /></div>
-      <div className="relative flex items-center justify-center flex-1 pointer-events-none"><SpanishSuit suit={card.suit} size={centerSize} /></div>
-      <div className="relative flex items-center justify-end gap-0.5 leading-none rotate-180" style={{ color }}><span className="font-semibold tracking-[-0.08em]" style={{ fontSize: pipSize }}>{rank}</span><SpanishSuit suit={card.suit} size={pipSize} /></div>
+    <motion.button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      initial={neon ? { opacity: 0, scale: 0.58, x: 28, y: -82, rotate: 9 } : { opacity: 0, scale: 0.85 }}
+      animate={{ opacity: dimmed ? 0.4 : 1, scale: 1, x: 0, y: selected ? -12 : 0, rotate: selected && neon ? -2 : 0 }}
+      transition={{ duration: neon ? dur * 1.35 : dur, delay, ease: neon ? [0.16, 1, 0.3, 1] : [0.22, 1, 0.36, 1] }}
+      className={`${sizeClass} relative overflow-hidden rounded-[0.65rem] border select-none transition-colors ${
+        neon
+          ? `bg-[#080909] ${selected ? "border-white ring-2 ring-white/70" : "border-white/25"}`
+          : `${selected ? "border-accent ring-2 ring-accent" : "border-[#c9c2b5]"}`
+      } ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.18)]" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`}
+      style={neon ? undefined : { background: "linear-gradient(160deg, #fdfbf4 0%, #f4efe1 100%)" }}
+      title={title}
+    >
+      {/* Inner rule, as on a printed card. */}
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute rounded-[0.45rem] border ${neon ? "border-dashed" : ""}`}
+        style={{ inset: mini ? 2 : 3, borderColor: neon ? `${color}aa` : "#d9d1c2" }}
+      />
+      {/* Court cards get a tinted panel so they read apart from the numbers. */}
+      {isFigure && !mini && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute rounded-[0.3rem]"
+          style={{ inset: small ? 7 : 9, background: neon ? `${color}14` : `${color}12`, border: `1px solid ${color}33` }}
+        />
+      )}
+      {body}
+      {cornerIndex(false)}
+      {cornerIndex(true)}
     </motion.button>
   );
 }
