@@ -7,9 +7,13 @@ import { useAchievementChecker } from "@/hooks/useAchievementChecker";
 import { useEffect, useState } from "react";
 import { useCustomizeStore } from "@/engine/customize/store";
 import { activateSocial, subscribeSocial, type RoomInvite } from "@/engine/mus/social";
+import { useDarkMode } from "@/hooks/useDarkMode";
 
 export default function GlobalProviders() {
   useAchievementChecker();
+  // Mus has no top bar, so it must still restore the saved light/dark preference
+  // after joining an invitation through a full-page navigation.
+  useDarkMode();
   const username = useCustomizeStore((s) => s.username);
   const [invite, setInvite] = useState<RoomInvite | null>(null);
   useEffect(() => { if (username) void activateSocial(username); return subscribeSocial((_, incoming) => { if (incoming) setInvite(incoming); }); }, [username]);
