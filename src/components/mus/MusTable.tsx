@@ -51,6 +51,10 @@ export default function MusTable() {
   const isOrdago = !!rt?.bet.isOrdago && rt.bet.envidoTeam !== null;
 
   useEffect(() => {
+    if (s.phase === "idle") {
+      recordedResults.current.clear();
+      return;
+    }
     if (!(["handEnd", "vacaEnd", "gameEnd"] as string[]).includes(s.phase)) return;
     const resultKey = `${s.dealerSeat}-${s.musRound}-${s.phase}`;
     if (recordedResults.current.has(resultKey)) return;
