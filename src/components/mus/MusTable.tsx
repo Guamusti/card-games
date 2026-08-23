@@ -86,15 +86,18 @@ export default function MusTable() {
               {s.seatActions[me] && <ActionBubble key={s.seatActions[me]} text={s.seatActions[me]!} big />}
             </AnimatePresence>
           </div>
-          <div className="flex gap-2">
-            {you.cards.map((c, i) => (
-              <MusCard
-                key={`${c.rank}-${c.suit}-${i}`}
-                card={c}
-                selected={s.phase === "discard" && s.discardSelection.includes(i)}
-                onClick={s.phase === "discard" ? () => s.toggleDiscard(i) : undefined}
-              />
-            ))}
+          <div className="flex w-full justify-center gap-1 px-1 sm:gap-2">
+            <AnimatePresence mode="popLayout">
+              {you.cards.map((c, i) => (
+                <MusCard
+                  key={`${s.musRound}-${c.rank}-${c.suit}-${i}`}
+                  card={c}
+                  delay={i * 0.09}
+                  selected={s.phase === "discard" && s.discardSelection.includes(i)}
+                  onClick={s.phase === "discard" ? () => s.toggleDiscard(i) : undefined}
+                />
+              ))}
+            </AnimatePresence>
           </div>
           <PlayerTag player={you} manoSeat={s.manoSeat} active={activeSeats.includes(me)} />
         </div>
@@ -210,7 +213,7 @@ function SeatView({ player, manoSeat, reveal, action, active, round }: {
       <PlayerTag player={player} manoSeat={manoSeat} active={active} onFelt />
       <div className="flex gap-0.5">
         {player.cards.map((c, i) => (
-          <MusCard key={`${round}-${i}`} card={reveal ? c : undefined} hidden={!reveal} mini delay={i * 0.06} />
+          <MusCard key={`${round}-${c.rank}-${c.suit}-${i}`} card={reveal ? c : undefined} hidden={!reveal} mini delay={i * 0.09} />
         ))}
       </div>
     </div>

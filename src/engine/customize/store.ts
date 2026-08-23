@@ -50,6 +50,8 @@ export interface CustomizeState {
   playerAvatar: PlayerAvatar;
   // Gameplay preferences
   nickname: string;
+  /** Public handle used to find a player in online Mus. */
+  username: string;
   autoDealDelay: number; // 0 = off, 1-5 seconds
   showProbabilities: boolean;
   aiDifficulty: AIDifficulty;
@@ -71,6 +73,7 @@ interface CustomizeActions {
   setSuitColors: (scheme: SuitColorScheme) => void;
   setPlayerAvatar: (avatar: PlayerAvatar) => void;
   setNickname: (name: string) => void;
+  setUsername: (username: string) => void;
   setAutoDealDelay: (seconds: number) => void;
   setShowProbabilities: (show: boolean) => void;
   setAiDifficulty: (d: AIDifficulty) => void;
@@ -113,6 +116,7 @@ const defaults: CustomizeState = {
   suitColors: "classic",
   playerAvatar: "🐶",
   nickname: "",
+  username: "",
   autoDealDelay: 0,
   showProbabilities: true,
   aiDifficulty: "normal",
@@ -174,6 +178,10 @@ export const useCustomizeStore = create<CustomizeStore>((set, get) => {
     setNickname: (nickname) => {
       set({ nickname });
       saveState({ ...get(), nickname });
+    },
+    setUsername: (username) => {
+      set({ username });
+      saveState({ ...get(), username });
     },
     setAutoDealDelay: (autoDealDelay) => {
       set({ autoDealDelay });

@@ -13,7 +13,7 @@ export default function SettingsPage() {
   const { dark, toggle } = useDarkMode();
 
   const {
-    nickname, setNickname,
+    nickname, setNickname, username, setUsername,
     aiDifficulty, setAiDifficulty,
     autoDealDelay, setAutoDealDelay,
     showProbabilities, setShowProbabilities,
@@ -45,6 +45,20 @@ export default function SettingsPage() {
             {/* ─── Gameplay ─── */}
             <Section title="Gameplay" delay={0.05}>
               <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5 px-3 py-2.5 rounded-lg border border-border">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col"><span className="text-xs text-muted">Usuario de Mus</span><span className="text-[9px] text-border">Tus amigos te buscarán por este usuario</span></div>
+                    <span className="text-xs text-muted">@</span>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 16))}
+                      placeholder="tu_usuario"
+                      maxLength={16}
+                      className="text-xs font-semibold text-right bg-transparent border-none outline-none w-32 placeholder:text-border"
+                    />
+                  </div>
+                </div>
                 {/* Nickname */}
                 <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border">
                   <span className="text-xs text-muted">Nickname</span>
