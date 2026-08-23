@@ -21,6 +21,13 @@ const games = [
     icon: "PK",
   },
   {
+    id: "mus",
+    name: "Mus",
+    description: "2v2 vs bots · online · práctica",
+    href: "/mus",
+    icon: "MUS",
+  },
+  {
     id: "counting",
     name: "Card Counting",
     description: "Hi-Lo system practice",
