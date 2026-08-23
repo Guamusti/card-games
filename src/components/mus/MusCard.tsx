@@ -98,7 +98,7 @@ export default function MusCard({
     </div>
   ) : isFigure ? (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <MusFigure rank={card.rank} height={small ? 34 : 46} color={color} outline={neon} />
+      <MusFigure rank={card.rank} height={small ? 34 : 46} color={color} />
     </div>
   ) : (
     <div className="absolute inset-0 pointer-events-none">

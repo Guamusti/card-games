@@ -7,62 +7,67 @@ interface Props {
   rank: SpanishRank;
   height?: number;
   color: string;
-  /** Neon deck renders the figure as line-art instead of a silhouette. */
-  outline?: boolean;
   className?: string;
 }
 
 /**
  * Court-card art for the Spanish deck — Sota (plumed page), Caballo (horse),
- * Rey (crowned bust). Stylised to stay readable at table sizes and to match
- * the flat suit marks. Solid for the classic deck, line-art for neon.
+ * Rey (crowned king). Drawn as line-art to match the suit marks, with a small
+ * profile face so the courts read as people, not blobs.
  */
-export default function MusFigure({ rank, height = 48, color, outline = false, className }: Props) {
+export default function MusFigure({ rank, height = 48, color, className }: Props) {
   const w = (height * 42) / 56;
+  const on = 1.6 * 56 / height;    // ~1.6px on-screen main line
+  const onThin = 1.05 * 56 / height;
   const common = { height, width: w, viewBox: "0 0 42 56", className, style: { color } } as const;
-  const paint = outline
-    ? { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinejoin: "round" as const, strokeLinecap: "round" as const }
-    : { fill: "currentColor" };
-  const thin = outline
-    ? { ...paint, strokeWidth: 1.2 }
-    : { fill: "#00000000", stroke: "currentColor", strokeWidth: 0 };
+  const g = { fill: "none", stroke: "currentColor", strokeWidth: on, strokeLinejoin: "round" as const, strokeLinecap: "round" as const };
+  const gt = { ...g, strokeWidth: onThin };
+  const dot = { fill: "currentColor", stroke: "none" as const };
 
   if (rank === 12) {
-    // Rey — crown with jewels over a robed bust.
+    // Rey — jewelled crown, profile face, robed bust.
     return (
       <svg {...common}>
-        <path {...paint} d="M9 15 V6 l6 4.4 L21 3 l6 7.4 6 -4.4 V15Z" />
-        <circle {...paint} cx="9" cy="4.6" r="1.4" />
-        <circle {...paint} cx="21" cy="1.8" r="1.4" />
-        <circle {...paint} cx="33" cy="4.6" r="1.4" />
-        <rect {...paint} x="8.4" y="16.4" width="25.2" height="3.4" rx="1.2" />
-        <circle {...paint} cx="21" cy="28" r="6.4" />
-        <path {...paint} d="M6 51 C6 42.5 12.7 37.4 21 37.4 S36 42.5 36 51Z" />
-        <path {...thin} d="M21 34.4 V44" />
+        <path {...g} d="M8 17 V8 L14.5 12 L21 4.5 L27.5 12 L34 8 V17Z" />
+        <circle cx="8" cy="6.6" r="1.5" {...dot} />
+        <circle cx="21" cy="3" r="1.6" {...dot} />
+        <circle cx="34" cy="6.6" r="1.5" {...dot} />
+        <path {...g} d="M8.6 17.4 H33.4 V20 H8.6Z" />
+        <circle cx="21" cy="29" r="6.6" {...g} />
+        <path {...gt} d="M14.6 29 l-2.4 1.7 2.4 1.4" />
+        <circle cx="18.4" cy="27.6" r="0.85" {...dot} />
+        <path {...gt} d="M16.4 32 H20" />
+        <path {...g} d="M5.5 52 C5.5 43 12.4 37.4 21 37.4 C29.6 37.4 36.5 43 36.5 52Z" />
+        <path {...gt} d="M15.5 39 L21 45.5 L26.5 39" />
       </svg>
     );
   }
 
   if (rank === 11) {
-    // Caballo — horse head, arched neck and mane.
+    // Caballo — horse head in profile with mane, ear, eye and nostril.
     return (
       <svg {...common}>
-        <path {...paint} d="M27 6 l1.6 5 5.4 2.1 -3.9 3.1 c2 2.9 2.6 5.8 1.8 8.9 -1.2 4.8 -5.1 7.6 -10.3 8.1 V51 H13.2 V30.5 C13.2 22 18.8 14.6 27 12 Z" />
-        <circle cx="26.4" cy="15.2" r="1.5" fill={outline ? "currentColor" : "#0c0f10"} />
-        <path {...thin} d="M27 6 c3.4 .6 5 3 5.2 6" />
-        <path {...thin} d="M13.2 46 H23" />
+        <path {...g} d="M27.5 8 l1.7 -3.4 1.9 3.4 c1.1 1.6 1.5 3.5 1.2 5.4 l4.2 1.5 -3.6 2.6 c1.8 3 2.2 6.2 1 9.3 -1.7 4.4 -5.7 6.7 -10.7 6.9 V51 H13.4 V30.4 C13.4 22 19 14.4 27.5 8Z" />
+        <circle cx="26.4" cy="15" r="1.2" {...dot} />
+        <path {...gt} d="M13.6 19.2 c1.4 -.2 2.4 .4 2.8 1.6" />
+        <path {...gt} d="M28 13.6 c3 1.4 4.2 4.4 3.4 7.6" />
+        <path {...gt} d="M25 24 c2.4 1 3.6 3.2 3.2 6" />
+        <path {...gt} d="M13.4 46 H22" />
       </svg>
     );
   }
 
-  // Sota — page with a plumed cap.
+  // Sota — page with a plumed cap and profile face.
   return (
     <svg {...common}>
-      <path {...paint} d="M9 17 C11 10.6 15.6 6.6 21 6.6 S31 10.6 33 17Z" />
-      <path {...thin} d="M30 9 C34 6 37 6.4 38.4 9 c-2.2 1.1 -3.8 3 -4.6 5.2" />
-      <circle {...paint} cx="21" cy="26.6" r="6.2" />
-      <path {...paint} d="M6 51 C6 42.5 12.7 37.4 21 37.4 S36 42.5 36 51Z" />
-      <path {...thin} d="M16 39 L21 44.4 L26 39" />
+      <path {...g} d="M8.5 17.5 C10.8 10.5 15.8 6.6 21 6.6 C26.2 6.6 31.2 10.5 33.5 17.5Z" />
+      <path {...g} d="M30 10 C34.5 6 38.5 6.2 39.6 9.4 C37 10.4 35 12.6 34.2 15.4" />
+      <circle cx="21" cy="27" r="6.4" {...g} />
+      <path {...gt} d="M14.9 27 l-2.3 1.6 2.3 1.4" />
+      <circle cx="18.6" cy="25.7" r="0.8" {...dot} />
+      <path {...gt} d="M16.6 30 H20.2" />
+      <path {...g} d="M5.5 52 C5.5 43 12.4 37.4 21 37.4 C29.6 37.4 36.5 43 36.5 52Z" />
+      <path {...gt} d="M15.5 39 L21 45.5 L26.5 39" />
     </svg>
   );
 }
