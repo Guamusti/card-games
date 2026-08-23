@@ -10,9 +10,19 @@ import MusCard from "./MusCard";
 import MusAvatar from "./MusAvatar";
 import ScoreBoard from "./ScoreBoard";
 import LanceBar from "./LanceBar";
+import { useCustomizeStore, type TableFelt } from "@/engine/customize/store";
+
+const FELT_BACKGROUND: Record<TableFelt, string> = {
+  none: "radial-gradient(115% 95% at 50% 40%, #263237 0%, #172126 52%, #0d1417 100%)",
+  subtle: "radial-gradient(115% 95% at 50% 40%, #303b3e 0%, #1b2528 52%, #101719 100%)",
+  green: "radial-gradient(115% 95% at 50% 40%, #244238 0%, #162b26 52%, #0c1715 100%)",
+  blue: "radial-gradient(115% 95% at 50% 40%, #263c4b 0%, #172832 52%, #0d171d 100%)",
+  wine: "radial-gradient(115% 95% at 50% 40%, #442c36 0%, #2d1c25 52%, #181016 100%)",
+};
 
 export default function MusTable() {
   const s = useMusStore();
+  const tableFelt = useCustomizeStore((state) => state.tableFelt);
 
   useEffect(() => {
     if (s.phase === "idle" && s.mode === "solo") s.startSolo();
@@ -59,9 +69,11 @@ export default function MusTable() {
 
         {/* Felt table */}
         <div
-          className="relative rounded-[2rem] border border-[#14332a] flex-1 min-h-[300px] max-h-[440px] overflow-hidden"
-          style={{ background: "radial-gradient(130% 100% at 50% 30%, #1c4a3a 0%, #123026 55%, #0c211a 100%)" }}
+          className="relative rounded-[1.75rem] border border-white/10 flex-1 min-h-[300px] max-h-[440px] overflow-hidden shadow-[0_18px_45px_rgba(9,14,16,0.2)]"
+          style={{ background: FELT_BACKGROUND[tableFelt] }}
         >
+          <div aria-hidden className="pointer-events-none absolute inset-2 rounded-[1.3rem] border border-white/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),inset_0_0_45px_rgba(0,0,0,0.16)]" />
+          <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.16]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.18) 0.55px, transparent 0.7px)", backgroundSize: "5px 5px" }} />
           {/* Partner (top) */}
           <div className="absolute top-3 left-1/2 -translate-x-1/2">
             <SeatView player={partner} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[partner.seat]} active={activeSeats.includes(partner.seat)} round={s.musRound} />
