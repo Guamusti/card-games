@@ -14,6 +14,7 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
   const { nickname, aiDifficulty, username, friends } = useCustomizeStore();
   const [onlineFriends, setOnlineFriends] = useState<Set<string>>(new Set());
   const [incomingInvite, setIncomingInvite] = useState<RoomInvite | null>(null);
+  const [sentInvite, setSentInvite] = useState<string | null>(null);
   const [view, setView] = useState<View>("choose");
   const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +131,7 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
           {lobby.isHost && (
             <div className="flex flex-col gap-2 rounded-xl border border-border p-3">
               <span className="text-[10px] uppercase tracking-widest text-muted">Amigos online</span>
-              {!username ? <span className="text-xs text-muted">Configura tu usuario en Perfil para invitar.</span> : friends.filter((friend) => onlineFriends.has(friend)).length === 0 ? <span className="text-xs text-muted">No hay amigos conectados.</span> : friends.filter((friend) => onlineFriends.has(friend)).map((friend) => <div key={friend} className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-correct" /><span className="flex-1 text-sm">@{friend}</span><button onClick={() => sendRoomInvite(friend, { from: username, code: lobby.code, mode: lobby.mode })} className="rounded-lg border border-foreground px-2 py-1 text-xs">Invitar</button></div>)}
+              {!username ? <span className="text-xs text-muted">Configura tu usuario en Perfil para invitar.</span> : friends.filter((friend) => onlineFriends.has(friend)).length === 0 ? <span className="text-xs text-muted">No hay amigos conectados.</span> : friends.filter((friend) => onlineFriends.has(friend)).map((friend) => <div key={friend} className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-correct" /><span className="flex-1 text-sm">@{friend}</span><button onClick={() => { sendRoomInvite(friend, { from: username, code: lobby.code, mode: lobby.mode }); setSentInvite(friend); setTimeout(() => setSentInvite(null), 2500); }} className="rounded-lg border border-foreground px-2 py-1 text-xs hover:bg-foreground hover:text-background active:scale-95 transition">{sentInvite === friend ? "Enviada ✓" : "Invitar"}</button></div>)}
             </div>
           )}
 
