@@ -306,6 +306,12 @@ export const useMusStore = create<MusStore>((set, get) => {
     if (s.phase !== "mus") return;
     const seat = manoOrder(s.manoSeat)[s.musActiveIdx];
     if (!mus) {
+      const ranks = s.players[seat].cards.map((card) => card.rank).sort((a, b) => a - b);
+      const isPerete = ranks.length === 4 && ranks.every((rank, index) => rank === index + 4);
+      if (isPerete && s.players[seat].isHuman) {
+        recordAction(seat, "Perete — descarto", { phase: "discard", message: "Perete: descarta cartas" });
+        return;
+      }
       // Someone cuts → betting begins.
       recordAction(seat, label || "No hay mus", { message: null });
       schedule(() => beginLances(), 600);

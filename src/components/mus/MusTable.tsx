@@ -29,7 +29,7 @@ export default function MusTable() {
   const rt = s.currentLance ? s.lances[s.currentLance] : null;
   const liveEnviteForUs = !!rt && rt.bet.envidoTeam !== null && rt.bet.envidoTeam !== myTeam;
   const openingTurnMe = !!rt && !rt.outcome && rt.bet.envidoTeam === null && rt.order[rt.activeIdx] === me;
-  const respondTurnMe = !!rt && !rt.outcome && liveEnviteForUs && rt.order.includes(me);
+  const respondTurnMe = !!rt && !rt.outcome && liveEnviteForUs && rt.order.includes(me) && s.humanSeats.includes(me);
   const humanTurnInLance = openingTurnMe || respondTurnMe;
   const currentStake = rt ? (rt.bet.chain[rt.bet.chain.length - 1] ?? 0) : 0;
   const musOrder = [0, 1, 2, 3].map((i) => (s.manoSeat + i) % 4);
@@ -254,7 +254,7 @@ function Recuento({ store }: { store: MusStore }) {
       ) : s.phase === "vacaEnd" ? (
         <span className="text-base font-medium">{s.ordagoVaca === "A" ? "¡Vaca para nosotros!" : "Vaca para ellos"}</span>
       ) : (
-        <div className="flex flex-wrap justify-center gap-1.5">
+        <div className="grid w-full grid-cols-1 gap-1.5">
           {s.handScores.filter((ls) => ls.points > 0 || ls.winnerTeam).map((ls, i) => (
             <span key={i} className={`text-[10px] px-2 py-1 rounded-lg border ${ls.winnerTeam === "A" ? "border-correct text-correct" : "border-border text-muted"}`}>
               <b>{ls.isPunto ? "Punto" : LANCE_LABEL[ls.lance]}</b> · {ls.winnerTeam === "A" ? "Nosotros" : ls.winnerTeam === "B" ? "Ellos" : "—"} {ls.points > 0 ? `+${ls.points}` : ""}
