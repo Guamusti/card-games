@@ -28,6 +28,8 @@ export interface LobbyState {
 type LobbyListener = (l: LobbyState) => void;
 type StartListener = () => void;
 type ErrorListener = (msg: string) => void;
+export interface RoomChatMessage { id: string; name: string; text: string; timestamp: number; }
+type ChatListener = (messages: RoomChatMessage[]) => void;
 
 function genCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -55,10 +57,12 @@ class MusRoom {
   private unsub: (() => void) | null = null;
   private pubTimer: ReturnType<typeof setTimeout> | null = null;
   private started = false;
+  private chatMessages: RoomChatMessage[] = [];
 
   onLobby: LobbyListener | null = null;
   onStart: StartListener | null = null;
   onError: ErrorListener | null = null;
+  onChat: ChatListener | null = null;
 
   private capacity() { return this.mode === "duo2" ? 2 : 4; }
 
@@ -111,6 +115,13 @@ class MusRoom {
       if (mySeat === undefined) { this.onError?.("No hay asiento libre en la sala"); return; }
       useMusStore.getState().startOnlineClient(mySeat, this.code);
       this.registerClientSend();
+    });
+
+    this.channel.subscribe("chat", (msg) => {
+      const message = msg.data as RoomChatMessage;
+      if (!message?.text || this.chatMessages.some((item) => item.id === message.id)) return;
+      this.chatMessages = [...this.chatMessages, message].slice(-60);
+      this.onChat?.(this.chatMessages);
     });
 
     // Host handles incoming client requests.
@@ -209,6 +220,17 @@ class MusRoom {
     }
   }
 
+  getChatMessages() { return this.chatMessages; }
+
+  sendChat(name: string, rawText: string) {
+    const text = rawText.trim().replace(/\s+/g, " ").slice(0, 280);
+    if (!text || !this.channel) return;
+    const message: RoomChatMessage = { id: `${this.clientId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: name.slice(0, 24) || "Jugador", text, timestamp: Date.now() };
+    this.chatMessages = [...this.chatMessages, message].slice(-60);
+    this.onChat?.(this.chatMessages);
+    this.channel.publish("chat", message);
+  }
+
   leave() {
     try {
       this.unsub?.(); this.unsub = null;
@@ -219,6 +241,7 @@ class MusRoom {
     } catch { /* ignore */ }
     this.client = null; this.channel = null; this.started = false;
     this.members = []; this.seatMap = {};
+    this.chatMessages = [];
   }
 }
 

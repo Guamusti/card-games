@@ -13,6 +13,7 @@ import AppTopBar from "@/components/ui/AppTopBar";
 import BottomNav from "@/components/ui/BottomNav";
 import { useCustomizeStore } from "@/engine/customize/store";
 import { activateSocial, subscribeSocial } from "@/engine/mus/social";
+import { useMusStatsStore, type MusStats } from "@/engine/mus/stats";
 
 function pct(num: number, den: number): string {
   if (den === 0) return "—";
@@ -24,6 +25,7 @@ export default function StatsPage() {
   useEffect(() => setMounted(true), []);
   useDarkMode();
   const { bj, poker, slots, resetStats } = useStatsStore();
+  const mus = useMusStatsStore();
   const walletBalance = useWalletStore((s) => s.balance);
   const unlockedIds = useAchievementStore((s) => s.unlockedIds);
   const dailyStreak = useDailyLoginStore((s) => s.streak);
@@ -31,7 +33,8 @@ export default function StatsPage() {
   const { username, setUsername, friends, addFriend, removeFriend } = useCustomizeStore();
   const [friendName, setFriendName] = useState("");
   const [onlineFriends, setOnlineFriends] = useState<Set<string>>(new Set());
-  useEffect(() => { if (username) void activateSocial(username); return subscribeSocial((online) => setOnlineFriends(online)); }, [username]);
+  const [friendMusStats, setFriendMusStats] = useState<Map<string, MusStats>>(new Map());
+  useEffect(() => { if (username) void activateSocial(username); return subscribeSocial((online, _, sharedMusStats) => { setOnlineFriends(online); setFriendMusStats(sharedMusStats); }); }, [username]);
   const bjAccuracy = bj.totalDecisions > 0
     ? Math.round((bj.correctDecisions / bj.totalDecisions) * 100) : null;
   const bjWinRate = bj.handsPlayed > 0
@@ -53,6 +56,16 @@ export default function StatsPage() {
   const foldPostflopPct = pokerFoldTotal > 0 ? Math.round((poker.foldPostflop / pokerFoldTotal) * 100) : 0;
 
   const netChips = poker.totalChipsWon - poker.totalChipsLost;
+  const musWinRate = mus.gamesPlayed > 0 ? Math.round((mus.gamesWon / mus.gamesPlayed) * 100) : null;
+  const musHandWinRate = mus.handsPlayed > 0 ? Math.round((mus.handsWon / mus.handsPlayed) * 100) : null;
+  const musRanking = [
+    { username: username || "Tú", stats: mus, self: true },
+    ...friends.filter((friend) => onlineFriends.has(friend)).map((friend) => ({ username: friend, stats: friendMusStats.get(friend), self: false })),
+  ].filter((entry): entry is { username: string; stats: MusStats; self: boolean } => !!entry.stats).sort((a, b) => {
+    const aRate = a.stats.gamesPlayed ? a.stats.gamesWon / a.stats.gamesPlayed : 0;
+    const bRate = b.stats.gamesPlayed ? b.stats.gamesWon / b.stats.gamesPlayed : 0;
+    return bRate - aRate || b.stats.gamesWon - a.stats.gamesWon;
+  });
 
   return (
     <div className="flex flex-col min-h-[100dvh]">
@@ -71,6 +84,25 @@ export default function StatsPage() {
               <input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 16))} placeholder="tu_usuario" className="rounded-lg border border-border px-3 py-2 text-sm bg-transparent outline-none" />
               <div className="flex gap-2 pt-1"><input value={friendName} onChange={(e) => setFriendName(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 16))} placeholder="Añadir por usuario" className="min-w-0 flex-1 rounded-lg border border-border px-3 py-2 text-sm bg-transparent outline-none" /><button onClick={() => { addFriend(friendName); setFriendName(""); }} className="rounded-lg bg-foreground px-3 text-xs text-background">Añadir</button></div>
               {friends.length === 0 ? <span className="text-xs text-muted">Aún no tienes amigos.</span> : friends.map((friend) => { const isOnline = onlineFriends.has(friend); return <div key={friend} className="flex items-center gap-2 text-sm py-1"><span className={`h-2 w-2 rounded-full ${isOnline ? "bg-correct" : "bg-muted"}`} /><span className="flex-1">@{friend}</span><span className="text-[10px] text-muted">{isOnline ? "Online" : "Offline"}</span><button onClick={() => removeFriend(friend)} className="text-muted">×</button></div>; })}
+            </div>
+          </Section>
+          <Section title="Mus" delay={0.07}>
+            <div className="grid grid-cols-3 gap-2">
+              <StatCard label="Partidas" value={mus.gamesPlayed.toString()} />
+              <StatCard label="Victoria" value={musWinRate === null ? "—" : `${musWinRate}%`} color={musWinRate !== null && musWinRate >= 50 ? "text-correct" : undefined} />
+              <StatCard label="Vacas" value={mus.vacasWon.toString()} />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <StatCard label="Manos" value={mus.handsPlayed.toString()} small />
+              <StatCard label="Manos ganadas" value={musHandWinRate === null ? "—" : `${musHandWinRate}%`} small />
+              <StatCard label="Piedras" value={mus.stonesWon.toString()} small />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5"><span className="text-xs text-muted">Órdagos ganados</span><span className="text-sm font-semibold tabular-nums">{mus.ordagosWon}</span></div>
+          </Section>
+          <Section title="Ranking de amigos · Mus" delay={0.09}>
+            <div className="flex flex-col overflow-hidden rounded-xl border border-border">
+              {musRanking.map((entry, index) => { const rate = entry.stats.gamesPlayed ? Math.round((entry.stats.gamesWon / entry.stats.gamesPlayed) * 100) : 0; return <div key={entry.username} className="flex items-center gap-3 border-b border-border px-3 py-2.5 last:border-0"><span className="w-4 text-xs text-muted">{index + 1}</span><span className={`h-2 w-2 rounded-full ${entry.self || onlineFriends.has(entry.username) ? "bg-correct" : "bg-muted"}`} /><span className="flex-1 text-sm">{entry.self ? "Tú" : `@${entry.username}`}</span><span className="text-xs text-muted">{entry.stats.gamesWon}/{entry.stats.gamesPlayed} · {rate}%</span></div>; })}
+              {musRanking.length === 1 && <span className="px-3 py-3 text-xs text-muted">Cuando un amigo esté conectado aparecerá aquí con sus estadísticas de Mus.</span>}
             </div>
           </Section>
           {/* ─── Portfolio Hero (Robinhood style) ─── */}

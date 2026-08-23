@@ -6,8 +6,9 @@ import DailyLoginModal from "@/components/ui/DailyLoginModal";
 import { useAchievementChecker } from "@/hooks/useAchievementChecker";
 import { useEffect, useState } from "react";
 import { useCustomizeStore } from "@/engine/customize/store";
-import { activateSocial, subscribeSocial, type RoomInvite } from "@/engine/mus/social";
+import { activateSocial, publishMusStats, subscribeSocial, type RoomInvite } from "@/engine/mus/social";
 import { useDarkMode } from "@/hooks/useDarkMode";
+import { useMusStatsStore } from "@/engine/mus/stats";
 
 export default function GlobalProviders() {
   useAchievementChecker();
@@ -15,8 +16,11 @@ export default function GlobalProviders() {
   // after joining an invitation through a full-page navigation.
   useDarkMode();
   const username = useCustomizeStore((s) => s.username);
+  const musState = useMusStatsStore();
+  const musStats = { handsPlayed: musState.handsPlayed, handsWon: musState.handsWon, gamesPlayed: musState.gamesPlayed, gamesWon: musState.gamesWon, vacasWon: musState.vacasWon, stonesWon: musState.stonesWon, ordagosWon: musState.ordagosWon };
   const [invite, setInvite] = useState<RoomInvite | null>(null);
-  useEffect(() => { if (username) void activateSocial(username); return subscribeSocial((_, incoming) => { if (incoming) setInvite(incoming); }); }, [username]);
+  useEffect(() => { if (username) void activateSocial(username).then(() => publishMusStats(musStats)); return subscribeSocial((_, incoming) => { if (incoming) setInvite(incoming); }); }, [username]);
+  useEffect(() => { if (username) publishMusStats(musStats); }, [musState.handsPlayed, musState.handsWon, musState.gamesPlayed, musState.gamesWon, musState.vacasWon, musState.stonesWon, musState.ordagosWon, username]);
 
   return (
     <>
