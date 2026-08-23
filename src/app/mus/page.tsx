@@ -7,9 +7,10 @@ import { useMusStore } from "@/engine/mus/store";
 import { useCustomizeStore } from "@/engine/customize/store";
 import type { VacaPoints, BestOf, MusDifficulty } from "@/engine/mus/types";
 import MusTable from "@/components/mus/MusTable";
+import MusPractice from "@/components/mus/MusPractice";
 import BottomNav from "@/components/ui/BottomNav";
 
-type Screen = "menu" | "solo-setup" | "solo";
+type Screen = "menu" | "solo-setup" | "solo" | "practice";
 
 export default function MusPage() {
   const [screen, setScreen] = useState<Screen>("menu");
@@ -24,12 +25,7 @@ export default function MusPage() {
   if (screen === "solo") {
     return (
       <div className="flex flex-col min-h-[100dvh]">
-        <button
-          onClick={() => { resetGame(); setScreen("menu"); }}
-          className="absolute top-3 left-3 z-20 text-xs text-muted hover:text-foreground flex items-center gap-1"
-        >
-          ← Salir
-        </button>
+        <button onClick={() => { resetGame(); setScreen("menu"); }} className="absolute top-3 left-3 z-20 text-xs text-muted hover:text-foreground">← Salir</button>
         <MusTable />
       </div>
     );
@@ -38,56 +34,33 @@ export default function MusPage() {
   return (
     <div className="flex flex-col min-h-[100dvh]">
       <header className="flex items-center justify-between px-4 h-14 border-b border-border">
-        <Link href="/" className="text-sm text-muted hover:text-foreground">← Inicio</Link>
+        {screen === "menu"
+          ? <Link href="/" className="text-sm text-muted hover:text-foreground">← Inicio</Link>
+          : <button onClick={() => setScreen("menu")} className="text-sm text-muted hover:text-foreground">← Modos</button>}
         <h1 className="text-base font-medium">Mus</h1>
-        <span className="w-12" />
+        <span className="w-14" />
       </header>
 
       <main className="flex-1 flex flex-col items-center px-6 py-8 pb-24">
         {screen === "menu" && (
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm flex flex-col gap-3">
             <p className="text-center text-sm text-muted mb-2">Elige un modo</p>
-
-            <ModeCard
-              title="Solo vs Bots"
-              desc="Tú + 1 compañero contra 2 bots"
-              icon="🤖"
-              onClick={() => setScreen("solo-setup")}
-            />
-            <ModeCard
-              title="Práctica"
-              desc="Probabilidad de ganar cada lance"
-              icon="📊"
-              badge="Próximamente"
-              disabled
-            />
-            <ModeCard
-              title="Online con amigos"
-              desc="4 jugadores reales, 2 parejas"
-              icon="🌐"
-              badge="Próximamente"
-              disabled
-            />
+            <ModeCard title="Solo vs Bots" desc="Tú + 1 compañero contra 2 bots" icon={<IconBot />} onClick={() => setScreen("solo-setup")} />
+            <ModeCard title="Práctica" desc="Probabilidad de ganar cada lance" icon={<IconChart />} onClick={() => setScreen("practice")} />
+            <ModeCard title="2 reales vs 2 bots" desc="Tú y un amigo contra 2 bots" icon={<IconDuo />} badge="Pronto" disabled />
+            <ModeCard title="Online con amigos" desc="4 jugadores reales, 2 parejas" icon={<IconGlobe />} badge="Pronto" disabled />
           </motion.div>
         )}
 
         {screen === "solo-setup" && (
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm flex flex-col gap-5">
-            <button onClick={() => setScreen("menu")} className="text-xs text-muted hover:text-foreground self-start">← Modos</button>
             <h2 className="text-lg font-light">Configuración</h2>
-
             <OptionRow label="Vaca a" hint="Piedras por vaca">
-              {([30, 40] as VacaPoints[]).map((v) => (
-                <Chip key={v} active={vaca === v} onClick={() => setVaca(v)}>{v}</Chip>
-              ))}
+              {([30, 40] as VacaPoints[]).map((v) => <Chip key={v} active={vaca === v} onClick={() => setVaca(v)}>{v}</Chip>)}
             </OptionRow>
-
             <OptionRow label="Partida" hint="Vacas para ganar">
-              {([3, 5] as BestOf[]).map((b) => (
-                <Chip key={b} active={bestOf === b} onClick={() => setBestOf(b)}>BO{b}</Chip>
-              ))}
+              {([3, 5] as BestOf[]).map((b) => <Chip key={b} active={bestOf === b} onClick={() => setBestOf(b)}>BO{b}</Chip>)}
             </OptionRow>
-
             <OptionRow label="Dificultad" hint="Nivel de los bots">
               {(["easy", "normal", "hard"] as MusDifficulty[]).map((d) => (
                 <Chip key={d} active={difficulty === d} onClick={() => setDifficulty(d)}>
@@ -95,15 +68,11 @@ export default function MusPage() {
                 </Chip>
               ))}
             </OptionRow>
-
-            <button
-              onClick={() => { startSolo({ vacaPoints: vaca, bestOf, difficulty }); setScreen("solo"); }}
-              className="mt-2 rounded-xl border border-foreground bg-foreground text-background px-4 py-3.5 text-sm font-medium active:scale-95 transition"
-            >
-              Jugar
-            </button>
+            <button onClick={() => { startSolo({ vacaPoints: vaca, bestOf, difficulty }); setScreen("solo"); }} className="mt-2 rounded-xl border border-foreground bg-foreground text-background px-4 py-3.5 text-sm font-medium active:scale-95 transition">Jugar</button>
           </motion.div>
         )}
+
+        {screen === "practice" && <MusPractice />}
       </main>
 
       <BottomNav />
@@ -112,17 +81,11 @@ export default function MusPage() {
 }
 
 function ModeCard({ title, desc, icon, badge, disabled, onClick }: {
-  title: string; desc: string; icon: string; badge?: string; disabled?: boolean; onClick?: () => void;
+  title: string; desc: string; icon: React.ReactNode; badge?: string; disabled?: boolean; onClick?: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`group flex items-center gap-4 p-4 border rounded-xl text-left transition-all ${
-        disabled ? "border-border opacity-50 cursor-not-allowed" : "border-border hover:border-foreground"
-      }`}
-    >
-      <div className="w-12 h-12 rounded-lg bg-foreground/5 flex items-center justify-center text-2xl shrink-0">{icon}</div>
+    <button onClick={onClick} disabled={disabled} className={`group flex items-center gap-4 p-4 border rounded-xl text-left transition-all ${disabled ? "border-border opacity-50 cursor-not-allowed" : "border-border hover:border-foreground"}`}>
+      <div className="w-12 h-12 rounded-lg bg-foreground/5 flex items-center justify-center shrink-0 text-foreground">{icon}</div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <h3 className="text-base font-medium">{title}</h3>
@@ -138,10 +101,7 @@ function ModeCard({ title, desc, icon, badge, disabled, onClick }: {
 function OptionRow({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between">
-      <div className="flex flex-col">
-        <span className="text-sm">{label}</span>
-        <span className="text-[10px] text-muted">{hint}</span>
-      </div>
+      <div className="flex flex-col"><span className="text-sm">{label}</span><span className="text-[10px] text-muted">{hint}</span></div>
       <div className="flex gap-1.5">{children}</div>
     </div>
   );
@@ -149,13 +109,36 @@ function OptionRow({ label, hint, children }: { label: string; hint: string; chi
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      className={`rounded-full border text-xs px-3 py-1.5 transition-colors ${
-        active ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:border-foreground"
-      }`}
-    >
-      {children}
-    </button>
+    <button onClick={onClick} className={`rounded-full border text-xs px-3 py-1.5 transition-colors ${active ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:border-foreground"}`}>{children}</button>
+  );
+}
+
+// ── Inline SVG icons (no emoji) ──
+function IconBot() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="8" width="16" height="11" rx="2" /><path d="M12 8V4" /><circle cx="12" cy="3" r="1" /><path d="M9 13h0M15 13h0" /><path d="M2 13v2M22 13v2" />
+    </svg>
+  );
+}
+function IconChart() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="5" width="3" height="13" />
+    </svg>
+  );
+}
+function IconDuo() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="9" r="3" /><circle cx="16" cy="9" r="3" /><path d="M3 20c0-2.8 2.2-5 5-5M21 20c0-2.8-2.2-5-5-5" />
+    </svg>
+  );
+}
+function IconGlobe() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.5 3.8 5.6 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.6-3.8-9S9.5 5.5 12 3z" />
+    </svg>
   );
 }

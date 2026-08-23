@@ -5,7 +5,7 @@ import type {
   SpanishCard, MusConfig, MusMode, MusPlayer, Lance, Team,
 } from "./types";
 import { DEFAULT_MUS_CONFIG, LANCES, teamOfSeat, LANCE_LABEL } from "./types";
-import { createShuffledDeck } from "./deck";
+import { createShuffledDeck, shuffle } from "./deck";
 import { evaluateMusHand, isJuegoLance } from "./rules";
 import {
   scoreLance, resolveLanceWinner, type LanceOutcome, type SeatHand, type LanceScore,
@@ -48,6 +48,7 @@ export interface MusState {
   mode: MusMode;
   players: MusPlayer[];
   deck: SpanishCard[];
+  discardPile: SpanishCard[];
   dealerSeat: number;
   manoSeat: number;
   phase: MusPhase;
@@ -63,6 +64,8 @@ export interface MusState {
   score: { A: number; B: number };
   vacas: { A: number; B: number };
   reveal: boolean;
+  /** Latest declaration per seat (mus / envido / quiero…), reset each lance. */
+  seatActions: (string | null)[];
   lastAction: { seat: number; text: string } | null;
   message: string | null;
   winnerTeam: Team | null;
@@ -90,8 +93,8 @@ export type HumanBetAction =
 export type MusStore = MusState & MusActions;
 
 const HUMAN_SEAT = 0;
-const AI_NAMES = ["Bot Sur", "Nora", "Bot Norte", "Iker"];
-const AI_AVATARS = ["🤖", "🦊", "🤖", "🦉"];
+const AI_NAMES = ["Sur", "Nora", "Beto", "Iker"];
+const AI_AVATARS = ["", "", "", ""];
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -187,6 +190,7 @@ function initialState(): MusState {
     mode: "solo",
     players: makePlayers(),
     deck: [],
+    discardPile: [],
     dealerSeat: 0,
     manoSeat: 1,
     phase: "idle",
@@ -199,6 +203,7 @@ function initialState(): MusState {
     score: { A: 0, B: 0 },
     vacas: { A: 0, B: 0 },
     reveal: false,
+    seatActions: [null, null, null, null],
     lastAction: null,
     message: null,
     winnerTeam: null,
@@ -214,6 +219,13 @@ export const useMusStore = create<MusStore>((set, get) => {
     setTimeout(fn, ms);
   }
 
+  /** Record a player's declaration so it stays visible next to their seat. */
+  function recordAction(seat: number, text: string, extra: Partial<MusState> = {}) {
+    const seatActions = get().seatActions.slice();
+    seatActions[seat] = text;
+    set({ seatActions, lastAction: { seat, text }, ...extra });
+  }
+
   /** Deal a fresh hand and enter the mus-voting phase. */
   function dealNewHand(dealerSeat: number) {
     const cfg = get().config;
@@ -222,9 +234,9 @@ export const useMusStore = create<MusStore>((set, get) => {
     const { players, deck: rest } = dealHands(base, deck);
     const manoSeat = (dealerSeat + 1) % 4;
     set({
-      players, deck: rest, dealerSeat, manoSeat,
+      players, deck: rest, discardPile: [], dealerSeat, manoSeat,
       phase: "mus", musActiveIdx: 0, musRound: 0,
-      discardSelection: [], reveal: false, handScores: [],
+      discardSelection: [], reveal: false, handScores: [], seatActions: [null, null, null, null],
       lances: { grande: null, chica: null, pares: null, juego: null },
       currentLance: null, lastAction: null, message: "Mus…", winnerTeam: null,
       ordagoVaca: null,
@@ -254,11 +266,11 @@ export const useMusStore = create<MusStore>((set, get) => {
     const seat = manoOrder(s.manoSeat)[s.musActiveIdx];
     if (!mus) {
       // Someone cuts → betting begins.
-      set({ lastAction: { seat, text: "No hay mus" }, message: null });
-      schedule(() => beginLances(), 500);
+      recordAction(seat, "No hay mus", { message: null });
+      schedule(() => beginLances(), 600);
       return;
     }
-    set({ lastAction: { seat, text: "Mus" } });
+    recordAction(seat, "Mus");
     const nextIdx = s.musActiveIdx + 1;
     if (nextIdx >= 4) {
       // Everyone wants mus → discard phase.
@@ -279,6 +291,20 @@ export const useMusStore = create<MusStore>((set, get) => {
   function doDiscardAndRedeal() {
     const s = get();
     let deck = [...s.deck];
+    let discardPile = [...s.discardPile];
+
+    // Draw one card, refilling the deck from the discard pile (reshuffled) when empty.
+    // Cards currently in players' hands are in neither pile, so they can never repeat.
+    const draw = (): SpanishCard => {
+      if (deck.length === 0) {
+        deck = discardPile.length > 0 ? shuffle(discardPile) : createShuffledDeck();
+        discardPile = [];
+      }
+      const c = deck[0];
+      deck = deck.slice(1);
+      return c;
+    };
+
     const players = s.players.map((p) => {
       let discards: number[];
       if (p.isHuman) {
@@ -287,17 +313,18 @@ export const useMusStore = create<MusStore>((set, get) => {
         const dec = decideMus(p.cards, s.config.reyes8, s.config.difficulty);
         discards = dec.discards.length > 0 ? dec.discards : [worstCardIndex(p.cards, s.config.reyes8)];
       }
+      // Thrown cards go to the discard pile.
+      p.cards.forEach((c, i) => { if (discards.includes(i)) discardPile.push(c); });
       const kept = p.cards.filter((_, i) => !discards.includes(i));
-      const need = 4 - kept.length;
-      const fresh = deck.slice(0, need);
-      deck = deck.slice(need);
+      const fresh: SpanishCard[] = [];
+      for (let k = kept.length; k < 4; k++) fresh.push(draw());
       return { ...p, cards: [...kept, ...fresh] };
     });
-    // If deck is running low, reshuffle a fresh one (Mus reshuffles the discards).
-    if (deck.length < 16) deck = createShuffledDeck();
+
     set({
-      players, deck, phase: "mus", musActiveIdx: 0,
-      musRound: s.musRound + 1, discardSelection: [], message: "Mus…", lastAction: null,
+      players, deck, discardPile, phase: "mus", musActiveIdx: 0,
+      musRound: s.musRound + 1, discardSelection: [], message: "Mus…",
+      lastAction: null, seatActions: [null, null, null, null],
     });
     maybeBotMus();
   }
@@ -321,14 +348,16 @@ export const useMusStore = create<MusStore>((set, get) => {
       // Only one team participates → uncontested, they take the base tantos.
       rt.outcome = { kind: "paso" };
       recordLance(lance, rt, rt.outcome);
-      set({ lastAction: { seat: rt.order[0], text: `${LANCE_LABEL[lance]}: en juego` } });
-      return schedule(() => advanceLance(lance), 700);
+      set({ seatActions: [null, null, null, null] });
+      recordAction(rt.order[0], `${LANCE_LABEL[lance]}: en juego`);
+      return schedule(() => advanceLance(lance), 900);
     }
 
     set({
       phase: lance, currentLance: lance,
       lances: { ...s.lances, [lance]: rt },
       message: LANCE_LABEL[lance],
+      seatActions: [null, null, null, null],
     });
     driveLance();
   }
@@ -446,18 +475,24 @@ export const useMusStore = create<MusStore>((set, get) => {
     }
 
     void p;
+    const seatActions = s.seatActions.slice();
+    seatActions[seat] = actionText;
     set({
       lances: { ...s.lances, [lance]: newRt },
       lastAction: { seat, text: actionText },
+      seatActions,
     });
     driveLance();
   }
 
   function finishLance(seat: number, text: string, lance: Lance, rt: LanceRuntime) {
     const s = get();
+    const seatActions = s.seatActions.slice();
+    seatActions[seat] = text;
     set({
       lances: { ...s.lances, [lance]: rt },
       lastAction: { seat, text },
+      seatActions,
     });
     recordLance(lance, rt, rt.outcome);
 
