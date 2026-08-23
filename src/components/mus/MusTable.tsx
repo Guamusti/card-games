@@ -14,20 +14,23 @@ export default function MusTable() {
   const s = useMusStore();
 
   useEffect(() => {
-    if (s.phase === "idle") s.startSolo();
+    if (s.phase === "idle" && s.mode === "solo") s.startSolo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const me = s.localSeat;
   const seat = (n: number) => s.players.find((p) => p.seat === n)!;
-  const you = seat(0), partner = seat(2), oppRight = seat(1), oppLeft = seat(3);
+  // Rotate so the local player is always at the bottom.
+  const you = seat(me), partner = seat((me + 2) % 4), oppRight = seat((me + 1) % 4), oppLeft = seat((me + 3) % 4);
+  const myTeam = teamOfSeat(me);
 
   const isLance = ["grande", "chica", "pares", "juego"].includes(s.phase);
   const rt = s.currentLance ? s.lances[s.currentLance] : null;
-  const humanTurnInLance = !!rt && !rt.outcome && rt.order[rt.activeIdx] === 0;
-  const liveEnviteForUs = !!rt && rt.bet.envidoTeam !== null && rt.bet.envidoTeam !== teamOfSeat(0);
+  const humanTurnInLance = !!rt && !rt.outcome && rt.order[rt.activeIdx] === me;
+  const liveEnviteForUs = !!rt && rt.bet.envidoTeam !== null && rt.bet.envidoTeam !== myTeam;
   const currentStake = rt ? (rt.bet.chain[rt.bet.chain.length - 1] ?? 0) : 0;
   const musOrder = [0, 1, 2, 3].map((i) => (s.manoSeat + i) % 4);
-  const musTurnHuman = s.phase === "mus" && musOrder[s.musActiveIdx] === 0;
+  const musTurnHuman = s.phase === "mus" && musOrder[s.musActiveIdx] === me;
   const stakeOnTable = rt && rt.bet.envidoTeam !== null && !rt.bet.isOrdago ? currentStake : 0;
   const isOrdago = !!rt?.bet.isOrdago && rt.bet.envidoTeam !== null;
 
@@ -53,14 +56,14 @@ export default function MusTable() {
         >
           {/* Partner (top) */}
           <div className="absolute top-3 left-1/2 -translate-x-1/2">
-            <SeatView player={partner} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[2]} active={activeSeat === 2} />
+            <SeatView player={partner} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[partner.seat]} active={activeSeat === partner.seat} />
           </div>
           {/* Opponents (sides) */}
           <div className="absolute left-2 top-1/2 -translate-y-1/2">
-            <SeatView player={oppLeft} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[3]} active={activeSeat === 3} />
+            <SeatView player={oppLeft} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[oppLeft.seat]} active={activeSeat === oppLeft.seat} />
           </div>
           <div className="absolute right-2 top-1/2 -translate-y-1/2">
-            <SeatView player={oppRight} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[1]} active={activeSeat === 1} />
+            <SeatView player={oppRight} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[oppRight.seat]} active={activeSeat === oppRight.seat} />
           </div>
           {/* Center */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -72,7 +75,7 @@ export default function MusTable() {
         <div className="flex flex-col items-center gap-1.5">
           <div className="h-6 flex items-center">
             <AnimatePresence>
-              {s.seatActions[0] && <ActionBubble key={s.seatActions[0]} text={s.seatActions[0]} big />}
+              {s.seatActions[me] && <ActionBubble key={s.seatActions[me]} text={s.seatActions[me]!} big />}
             </AnimatePresence>
           </div>
           <div className="flex gap-1.5">
@@ -86,7 +89,7 @@ export default function MusTable() {
               />
             ))}
           </div>
-          <PlayerTag player={you} manoSeat={s.manoSeat} active={activeSeat === 0} />
+          <PlayerTag player={you} manoSeat={s.manoSeat} active={activeSeat === me} />
         </div>
 
         {/* Controls */}

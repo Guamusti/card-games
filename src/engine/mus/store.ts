@@ -52,9 +52,16 @@ export interface MusState {
   dealerSeat: number;
   manoSeat: number;
   phase: MusPhase;
+  // online context
+  localSeat: number;        // which seat this device controls (0 in solo)
+  humanSeats: number[];     // seats controlled by real people
+  isHost: boolean;          // host runs bots + authoritative reducer
+  roomCode: string | null;
   // mus voting
   musActiveIdx: number;
-  discardSelection: number[];
+  discardSelection: number[];          // local player's current picks
+  discardSelections: Record<number, number[]>; // per-seat picks (host aggregates)
+  discardConfirmed: number[];          // seats that confirmed their discard
   musRound: number;
   // lances
   lances: Record<Lance, LanceRuntime | null>;
@@ -80,6 +87,29 @@ interface MusActions {
   humanBet: (a: HumanBetAction) => void;
   nextHand: () => void;
   reset: () => void;
+  // ── Online (host-authoritative) ──
+  startOnlineHost: (config: MusConfig, humanSeats: number[], names: Record<number, string>, localSeat: number, roomCode: string) => void;
+  startOnlineClient: (localSeat: number, roomCode: string) => void;
+  submitMusVote: (seat: number, mus: boolean) => void;
+  submitBet: (seat: number, a: HumanBetAction) => void;
+  submitDiscard: (seat: number, discards: number[]) => void;
+  submitNextHand: (seat: number) => void;
+  applyRemoteState: (state: Partial<MusState>) => void;
+  /** Serialize just the data fields for network sync. */
+  snapshot: () => Partial<MusState>;
+}
+
+/** Client → host network intents (online mode). */
+export type MusNetAction =
+  | { t: "mus"; mus: boolean }
+  | { t: "bet"; a: HumanBetAction }
+  | { t: "discard"; discards: number[] }
+  | { t: "next" };
+
+let onlineSend: ((seat: number, action: MusNetAction) => void) | null = null;
+/** The online layer registers this so a client can forward actions to the host. */
+export function setOnlineSend(fn: ((seat: number, action: MusNetAction) => void) | null) {
+  onlineSend = fn;
 }
 
 export type HumanBetAction =
@@ -92,7 +122,6 @@ export type HumanBetAction =
 
 export type MusStore = MusState & MusActions;
 
-const HUMAN_SEAT = 0;
 const AI_NAMES = ["Sur", "Nora", "Beto", "Iker"];
 const AI_AVATARS = ["", "", "", ""];
 
@@ -102,15 +131,18 @@ function manoOrder(manoSeat: number): number[] {
   return [0, 1, 2, 3].map((i) => (manoSeat + i) % 4);
 }
 
-function makePlayers(): MusPlayer[] {
-  const { playerAvatar, nickname } = useCustomizeStore.getState();
+function makePlayers(humanSeats: number[] = [0], names: Record<number, string> = {}): MusPlayer[] {
+  const { nickname } = useCustomizeStore.getState();
   const players: MusPlayer[] = [];
   for (let seat = 0; seat < 4; seat++) {
-    const isHuman = seat === HUMAN_SEAT;
+    const isHuman = humanSeats.includes(seat);
+    const defaultName = isHuman
+      ? (seat === 0 && humanSeats.length === 1 ? (nickname || "Tú") : `Jugador ${seat + 1}`)
+      : AI_NAMES[seat] || `Bot ${seat}`;
     players.push({
-      id: isHuman ? "player" : `bot-${seat}`,
-      name: isHuman ? (nickname || "Tú") : AI_NAMES[seat],
-      avatar: isHuman ? playerAvatar : AI_AVATARS[seat],
+      id: isHuman ? `human-${seat}` : `bot-${seat}`,
+      name: names[seat] || defaultName,
+      avatar: "",
       seat,
       team: teamOfSeat(seat),
       cards: [],
@@ -194,8 +226,14 @@ function initialState(): MusState {
     dealerSeat: 0,
     manoSeat: 1,
     phase: "idle",
+    localSeat: 0,
+    humanSeats: [0],
+    isHost: true,
+    roomCode: null,
     musActiveIdx: 0,
     discardSelection: [],
+    discardSelections: {},
+    discardConfirmed: [],
     musRound: 0,
     lances: { grande: null, chica: null, pares: null, juego: null },
     currentLance: null,
@@ -228,20 +266,22 @@ export const useMusStore = create<MusStore>((set, get) => {
 
   /** Deal a fresh hand and enter the mus-voting phase. */
   function dealNewHand(dealerSeat: number) {
-    const cfg = get().config;
-    const base = makePlayers();
+    const cur = get();
+    const names: Record<number, string> = {};
+    cur.players.forEach((p) => { names[p.seat] = p.name; });
+    const base = makePlayers(cur.humanSeats, names);
     const deck = createShuffledDeck();
     const { players, deck: rest } = dealHands(base, deck);
     const manoSeat = (dealerSeat + 1) % 4;
     set({
       players, deck: rest, discardPile: [], dealerSeat, manoSeat,
       phase: "mus", musActiveIdx: 0, musRound: 0,
-      discardSelection: [], reveal: false, handScores: [], seatActions: [null, null, null, null],
+      discardSelection: [], discardSelections: {}, discardConfirmed: [],
+      reveal: false, handScores: [], seatActions: [null, null, null, null],
       lances: { grande: null, chica: null, pares: null, juego: null },
       currentLance: null, lastAction: null, message: "Mus…", winnerTeam: null,
       ordagoVaca: null,
     });
-    void cfg;
     maybeBotMus();
   }
 
@@ -249,8 +289,9 @@ export const useMusStore = create<MusStore>((set, get) => {
   function maybeBotMus() {
     const s = get();
     if (s.phase !== "mus") return;
+    if (!s.isHost) return; // only host runs bots
     const seat = manoOrder(s.manoSeat)[s.musActiveIdx];
-    if (seat === HUMAN_SEAT) return; // wait for human
+    if (s.humanSeats.includes(seat)) return; // wait for a human
     schedule(() => {
       const st = get();
       if (st.phase !== "mus") return;
@@ -308,7 +349,8 @@ export const useMusStore = create<MusStore>((set, get) => {
     const players = s.players.map((p) => {
       let discards: number[];
       if (p.isHuman) {
-        discards = s.discardSelection.length > 0 ? s.discardSelection : [worstCardIndex(p.cards, s.config.reyes8)];
+        const sel = s.discardSelections[p.seat] ?? (p.seat === s.localSeat ? s.discardSelection : []);
+        discards = sel.length > 0 ? sel : [worstCardIndex(p.cards, s.config.reyes8)];
       } else {
         const dec = decideMus(p.cards, s.config.reyes8, s.config.difficulty);
         discards = dec.discards.length > 0 ? dec.discards : [worstCardIndex(p.cards, s.config.reyes8)];
@@ -323,8 +365,8 @@ export const useMusStore = create<MusStore>((set, get) => {
 
     set({
       players, deck, discardPile, phase: "mus", musActiveIdx: 0,
-      musRound: s.musRound + 1, discardSelection: [], message: "Mus…",
-      lastAction: null, seatActions: [null, null, null, null],
+      musRound: s.musRound + 1, discardSelection: [], discardSelections: {}, discardConfirmed: [],
+      message: "Mus…", lastAction: null, seatActions: [null, null, null, null],
     });
     maybeBotMus();
   }
@@ -368,8 +410,9 @@ export const useMusStore = create<MusStore>((set, get) => {
     if (!lance) return;
     const rt = s.lances[lance];
     if (!rt || rt.outcome) return;
+    if (!s.isHost) return; // only host runs bots
     const seat = rt.order[rt.activeIdx];
-    if (seat === HUMAN_SEAT) return; // wait for human input
+    if (s.humanSeats.includes(seat)) return; // wait for a human
     // Bot acts.
     schedule(() => {
       const st = get();
@@ -377,7 +420,7 @@ export const useMusStore = create<MusStore>((set, get) => {
       const cur = st.lances[lance];
       if (!cur || cur.outcome) return;
       const botSeat = cur.order[cur.activeIdx];
-      if (botSeat === HUMAN_SEAT) return;
+      if (st.humanSeats.includes(botSeat)) return;
       const p = st.players[botSeat];
       const team = teamOfSeat(botSeat);
       const decision = decideBet({
@@ -602,12 +645,11 @@ export const useMusStore = create<MusStore>((set, get) => {
       dealNewHand(0);
     },
 
+    // ── Local player actions (route to host when online client) ──
     voteMus: (mus) => {
       const s = get();
-      if (s.phase !== "mus") return;
-      const seat = manoOrder(s.manoSeat)[s.musActiveIdx];
-      if (seat !== HUMAN_SEAT) return;
-      applyMusVote(mus);
+      if (s.isHost) get().submitMusVote(s.localSeat, mus);
+      else onlineSend?.(s.localSeat, { t: "mus", mus });
     },
 
     toggleDiscard: (index) => {
@@ -623,31 +665,109 @@ export const useMusStore = create<MusStore>((set, get) => {
       const s = get();
       if (s.phase !== "discard") return;
       if (s.discardSelection.length === 0) return; // must discard at least 1
-      doDiscardAndRedeal();
+      if (s.isHost) get().submitDiscard(s.localSeat, s.discardSelection);
+      else onlineSend?.(s.localSeat, { t: "discard", discards: s.discardSelection });
     },
 
     humanBet: (a) => {
       const s = get();
-      const lance = s.currentLance;
-      if (!lance) return;
-      const rt = s.lances[lance];
-      if (!rt || rt.outcome) return;
-      if (rt.order[rt.activeIdx] !== HUMAN_SEAT) return;
-      applyBet(HUMAN_SEAT, a);
+      if (s.isHost) get().submitBet(s.localSeat, a);
+      else onlineSend?.(s.localSeat, { t: "bet", a });
     },
 
     nextHand: () => {
       const s = get();
+      if (s.isHost) get().submitNextHand(s.localSeat);
+      else onlineSend?.(s.localSeat, { t: "next" });
+    },
+
+    reset: () => { setOnlineSend(null); set({ ...initialState() }); },
+
+    // ── Authoritative reducers (run on host) ──
+    submitMusVote: (seat, mus) => {
+      const s = get();
+      if (!s.isHost || s.phase !== "mus") return;
+      const active = manoOrder(s.manoSeat)[s.musActiveIdx];
+      if (active !== seat) return; // not this seat's turn
+      applyMusVote(mus);
+    },
+
+    submitBet: (seat, a) => {
+      const s = get();
+      if (!s.isHost) return;
+      const lance = s.currentLance;
+      if (!lance) return;
+      const rt = s.lances[lance];
+      if (!rt || rt.outcome) return;
+      if (rt.order[rt.activeIdx] !== seat) return;
+      applyBet(seat, a);
+    },
+
+    submitDiscard: (seat, discards) => {
+      const s = get();
+      if (!s.isHost || s.phase !== "discard") return;
+      const picks = discards.length > 0 ? discards : [worstCardIndex(s.players[seat].cards, s.config.reyes8)];
+      const selections = { ...s.discardSelections, [seat]: picks };
+      const confirmed = s.discardConfirmed.includes(seat) ? s.discardConfirmed : [...s.discardConfirmed, seat];
+      set({ discardSelections: selections, discardConfirmed: confirmed });
+      // Redeal once every human seat has confirmed.
+      if (s.humanSeats.every((hs) => confirmed.includes(hs))) {
+        doDiscardAndRedeal();
+      }
+    },
+
+    submitNextHand: (seat) => {
+      const s = get();
+      if (!s.isHost) return;
+      if (!s.humanSeats.includes(seat)) return;
       if (s.phase === "gameEnd") {
-        // restart match
-        set({ ...initialState(), config: s.config, mode: s.mode });
+        set({ ...initialState(), config: s.config, mode: s.mode, isHost: true, humanSeats: s.humanSeats, localSeat: s.localSeat, roomCode: s.roomCode, players: s.players });
         dealNewHand(0);
         return;
       }
+      if (s.phase !== "handEnd" && s.phase !== "vacaEnd") return;
       dealNewHand((s.dealerSeat + 1) % 4);
     },
 
-    reset: () => set({ ...initialState() }),
+    // ── Online setup / sync ──
+    startOnlineHost: (config, humanSeats, names, localSeat, roomCode) => {
+      set({
+        ...initialState(),
+        config, mode: "online", isHost: true, humanSeats, localSeat, roomCode,
+        players: makePlayers(humanSeats, names),
+      });
+      dealNewHand(0);
+    },
+
+    startOnlineClient: (localSeat, roomCode) => {
+      setOnlineSend(null); // set by online layer
+      set({
+        ...initialState(),
+        mode: "online", isHost: false, localSeat, roomCode, humanSeats: [],
+        phase: "idle", message: "Conectando…",
+      });
+    },
+
+    applyRemoteState: (partial) => {
+      // Clients render host state; keep this device's local-only fields intact.
+      const { localSeat, isHost, discardSelection } = get();
+      set({ ...partial, localSeat, isHost, discardSelection });
+    },
+
+    snapshot: () => {
+      const s = get();
+      return {
+        config: s.config, mode: s.mode, players: s.players, deck: s.deck,
+        discardPile: s.discardPile, dealerSeat: s.dealerSeat, manoSeat: s.manoSeat,
+        phase: s.phase, humanSeats: s.humanSeats, roomCode: s.roomCode,
+        musActiveIdx: s.musActiveIdx, discardSelections: s.discardSelections,
+        discardConfirmed: s.discardConfirmed, musRound: s.musRound,
+        lances: s.lances, currentLance: s.currentLance, handScores: s.handScores,
+        score: s.score, vacas: s.vacas, reveal: s.reveal, seatActions: s.seatActions,
+        lastAction: s.lastAction, message: s.message, winnerTeam: s.winnerTeam,
+        ordagoVaca: s.ordagoVaca,
+      };
+    },
   };
 });
 

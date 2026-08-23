@@ -8,9 +8,11 @@ import { useCustomizeStore } from "@/engine/customize/store";
 import type { VacaPoints, BestOf, MusDifficulty } from "@/engine/mus/types";
 import MusTable from "@/components/mus/MusTable";
 import MusPractice from "@/components/mus/MusPractice";
+import MusLobby from "@/components/mus/MusLobby";
 import BottomNav from "@/components/ui/BottomNav";
+import { resetMusRoom, type RoomMode } from "@/engine/mus/online";
 
-type Screen = "menu" | "solo-setup" | "solo" | "practice";
+type Screen = "menu" | "solo-setup" | "solo" | "practice" | "lobby" | "online-play";
 
 export default function MusPage() {
   const [screen, setScreen] = useState<Screen>("menu");
@@ -21,11 +23,17 @@ export default function MusPage() {
   const [vaca, setVaca] = useState<VacaPoints>(30);
   const [bestOf, setBestOf] = useState<BestOf>(3);
   const [difficulty, setDifficulty] = useState<MusDifficulty>(aiDifficulty);
+  const [onlineMode, setOnlineMode] = useState<RoomMode>("friends4");
 
-  if (screen === "solo") {
+  if (screen === "solo" || screen === "online-play") {
+    const exit = () => {
+      if (screen === "online-play") resetMusRoom();
+      resetGame();
+      setScreen("menu");
+    };
     return (
       <div className="flex flex-col min-h-[100dvh]">
-        <button onClick={() => { resetGame(); setScreen("menu"); }} className="absolute top-3 left-3 z-20 text-xs text-muted hover:text-foreground">← Salir</button>
+        <button onClick={exit} className="absolute top-3 left-3 z-20 text-xs text-muted hover:text-foreground">← Salir</button>
         <MusTable />
       </div>
     );
@@ -47,8 +55,8 @@ export default function MusPage() {
             <p className="text-center text-sm text-muted mb-2">Elige un modo</p>
             <ModeCard title="Solo vs Bots" desc="Tú + 1 compañero contra 2 bots" icon={<IconBot />} onClick={() => setScreen("solo-setup")} />
             <ModeCard title="Práctica" desc="Probabilidad de ganar cada lance" icon={<IconChart />} onClick={() => setScreen("practice")} />
-            <ModeCard title="2 reales vs 2 bots" desc="Tú y un amigo contra 2 bots" icon={<IconDuo />} badge="Pronto" disabled />
-            <ModeCard title="Online con amigos" desc="4 jugadores reales, 2 parejas" icon={<IconGlobe />} badge="Pronto" disabled />
+            <ModeCard title="2 reales vs 2 bots" desc="Tú y un amigo contra 2 bots" icon={<IconDuo />} badge="Online" onClick={() => { setOnlineMode("duo2"); setScreen("lobby"); }} />
+            <ModeCard title="Online con amigos" desc="4 jugadores reales, 2 parejas" icon={<IconGlobe />} badge="Online" onClick={() => { setOnlineMode("friends4"); setScreen("lobby"); }} />
           </motion.div>
         )}
 
@@ -73,6 +81,10 @@ export default function MusPage() {
         )}
 
         {screen === "practice" && <MusPractice />}
+
+        {screen === "lobby" && (
+          <MusLobby mode={onlineMode} onStarted={() => setScreen("online-play")} onExit={() => setScreen("menu")} />
+        )}
       </main>
 
       <BottomNav />
