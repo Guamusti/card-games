@@ -93,7 +93,8 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
           <p className="text-xs text-muted">Tú fijas las reglas de la sala.</p>
           <Row label="Vaca a">{([30, 40] as VacaPoints[]).map((v) => <Chip key={v} active={vaca === v} onClick={() => setVaca(v)}>{v}</Chip>)}</Row>
           <Row label="Partida">{([3, 5] as BestOf[]).map((b) => <Chip key={b} active={bestOf === b} onClick={() => setBestOf(b)}>BO{b}</Chip>)}</Row>
-          <Row label="Bots">{(["easy", "normal", "hard"] as MusDifficulty[]).map((d) => <Chip key={d} active={difficulty === d} onClick={() => setDifficulty(d)}>{d === "easy" ? "Fácil" : d === "normal" ? "Normal" : "Difícil"}</Chip>)}</Row>
+          <Row label="Bots">{(["easy", "normal", "hard", "imposible"] as MusDifficulty[]).map((d) => <Chip key={d} active={difficulty === d} onClick={() => setDifficulty(d)}>{d === "easy" ? "Fácil" : d === "normal" ? "Normal" : d === "hard" ? "Difícil" : "Imposible"}</Chip>)}</Row>
+          {difficulty === "imposible" && <p className="-mt-2 text-[11px] text-accent">Los bots juegan por estadística (Monte Carlo) y pot-odds. Muy difícil de ganar.</p>}
           <button onClick={doHost} disabled={busy} className="btn-primary disabled:opacity-50">{busy ? "Creando…" : "Crear sala"}</button>
           <button onClick={() => setView("choose")} className="btn-ghost">Atrás</button>
         </motion.div>
@@ -163,7 +164,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div className="flex flex-col gap-1"><span className="text-[10px] uppercase tracking-widest text-muted">{label}</span>{children}</div>;
 }
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="flex items-center justify-between"><span className="text-sm">{label}</span><div className="flex gap-1.5">{children}</div></div>;
+  return <div className="flex items-center justify-between gap-3"><span className="text-sm shrink-0">{label}</span><div className="flex flex-wrap justify-end gap-1.5">{children}</div></div>;
 }
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return <button onClick={onClick} className={`rounded-full border text-xs px-3 py-1.5 transition-colors ${active ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:border-foreground"}`}>{children}</button>;
