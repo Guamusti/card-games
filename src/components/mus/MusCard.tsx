@@ -18,6 +18,8 @@ interface MusCardProps {
   mini?: boolean;
   selected?: boolean;
   dimmed?: boolean;
+  /** Winner glow when a lance is inspected at recuento. */
+  highlight?: boolean;
   /** Where the card flies in from (the deck sits at table centre). */
   dealFrom?: "top" | "bottom" | "left" | "right";
   onClick?: () => void;
@@ -49,13 +51,14 @@ const PIP_LAYOUT: Partial<Record<SpanishRank, [number, number][]>> = {
 };
 
 export default function MusCard({
-  card, hidden = false, delay = 0, small = false, mini = false, selected = false, dimmed = false, dealFrom, onClick,
+  card, hidden = false, delay = 0, small = false, mini = false, selected = false, dimmed = false, highlight = false, dealFrom, onClick,
 }: MusCardProps) {
   const { showCardShadow, animationSpeed, musDeckTheme, cardBack } = useCustomizeStore();
   const neon = musDeckTheme === "neon";
   const minimal = musDeckTheme === "minimal";
   const silueta = musDeckTheme === "silueta";
   const tradicional = musDeckTheme === "tradicional";
+  const glow = highlight ? "ring-2 ring-yellow-400 shadow-[0_0_16px_rgba(250,204,21,0.8)] z-10 animate-pulse" : "";
   const dur = animationSpeed === "fast" ? 0.28 : animationSpeed === "slow" ? 0.55 : 0.38;
   const sizeClass = mini ? "mus-card-mini" : small ? "mus-card-sm" : "mus-card";
   const origin = dealOrigin(dealFrom);
@@ -75,7 +78,7 @@ export default function MusCard({
         animate={{ opacity: 1, scale: 1, x: 0, y: 0, rotate: 0 }}
         exit={dealExit}
         transition={dealTransition}
-        className={`${sizeClass} relative overflow-hidden rounded-[0.65rem] border border-black/40 select-none ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.22)]" : ""}`}
+        className={`${sizeClass} relative overflow-hidden rounded-[0.65rem] border border-black/40 select-none ${glow} ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.22)]" : ""}`}
         style={{ background: back.bg }}
       >
         {back.pattern && <div aria-hidden className="absolute inset-0" style={{ backgroundImage: back.pattern }} />}
@@ -98,7 +101,7 @@ export default function MusCard({
         animate={{ opacity: dimmed ? 0.4 : 1, scale: 1, x: 0, y: selected ? -12 : 0, rotate: 0 }}
         exit={dealExit}
         transition={dealTransition}
-        className={`${sizeClass} relative overflow-hidden rounded-[0.55rem] border select-none transition-colors ${selected ? "border-accent ring-2 ring-accent" : "border-black/15"} ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.2)]" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`}
+        className={`${sizeClass} relative overflow-hidden rounded-[0.55rem] border select-none transition-colors ${glow} ${selected ? "border-accent ring-2 ring-accent" : "border-black/15"} ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.2)]" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`}
         style={{ background: "#fff" }}
         title={`${RANK_LABEL[card.rank]} de ${SUIT_NAME[card.suit]}`}
       >
@@ -173,7 +176,7 @@ export default function MusCard({
           : minimal
           ? `bg-white ${selected ? "border-accent ring-2 ring-accent" : "border-[#e6e4df]"}`
           : `${selected ? "border-accent ring-2 ring-accent" : "border-[#c9c2b5]"}`
-      } ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.18)]" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`}
+      } ${glow} ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.18)]" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`}
       style={neon ? undefined : minimal ? { background: "#ffffff" } : { background: "linear-gradient(160deg, #fdfbf4 0%, #f4efe1 100%)" }}
       title={title}
     >

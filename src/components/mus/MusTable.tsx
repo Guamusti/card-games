@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { useMusStore, type MusStore } from "@/engine/mus/store";
-import type { MusPlayer } from "@/engine/mus/types";
+import type { MusPlayer, Lance } from "@/engine/mus/types";
 import { teamOfSeat, LANCE_LABEL } from "@/engine/mus/types";
 import { evaluateMusHand } from "@/engine/mus/rules";
+import { resolveLanceWinner } from "@/engine/mus/scoring";
 import { buzz } from "@/engine/mus/haptics";
 import MusCard from "./MusCard";
 import MusAvatar from "./MusAvatar";
@@ -29,6 +30,10 @@ export default function MusTable() {
   const recordedResults = useRef(new Set<string>());
   const tableFelt = useCustomizeStore((state) => state.tableFelt);
   const [helpOpen, setHelpOpen] = useState(false);
+  // Recuento inspection: click a lance to see which hand won it.
+  const [selLance, setSelLance] = useState<Lance | null>(null);
+  // Manual left-to-right order of the player's own hand (drag to reorder).
+  const [handOrder, setHandOrder] = useState<number[]>([0, 1, 2, 3]);
 
   useEffect(() => {
     if (s.phase === "idle" && s.mode === "solo") s.startSolo();
@@ -84,8 +89,27 @@ export default function MusTable() {
   const waitingSeat = activeSeats.find((se) => se !== me) ?? activeSeats[0];
   const waitingName = waitingSeat != null && s.players.length ? seat(waitingSeat).name : null;
 
+  // Recuento: which seat's hand won the lance the player tapped.
+  const inRecuento = ["showdown", "handEnd", "vacaEnd", "gameEnd"].includes(s.phase);
+  let winnerSeat: number | null = null;
+  if (selLance && s.reveal) {
+    const evals = s.players.map((p) => ({ seat: p.seat, team: teamOfSeat(p.seat), eval: evaluateMusHand(p.cards, s.config.reyes8) }));
+    const lrt = s.lances[selLance];
+    const parts = lrt && lrt.order.length ? lrt.order.map((se) => evals[se]) : evals;
+    winnerSeat = resolveLanceWinner(selLance, parts, musOrder)?.seat ?? null;
+  }
+  const cardFx = (seatNum: number) => ({
+    highlight: winnerSeat === seatNum,
+    dimmed: !!selLance && winnerSeat !== null && seatNum !== winnerSeat,
+  });
+
   // Haptic nudge when it becomes the human's turn.
   useEffect(() => { if (myTurn) buzz("turn"); }, [myTurn, s.currentLance, s.phase, s.musActiveIdx]);
+
+  // Clear the inspected lance on a new hand or when leaving the recuento.
+  useEffect(() => { setSelLance(null); }, [s.musRound, s.dealerSeat, inRecuento]);
+  // Reset the hand order each new deal / after discards.
+  useEffect(() => { setHandOrder([0, 1, 2, 3]); }, [s.musRound, s.dealerSeat]);
 
   // Haptic on hand/vaca/game resolution (win vs loss for the local team).
   const settledRef = useRef<string | null>(null);
@@ -152,14 +176,14 @@ export default function MusTable() {
           <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.09]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.25) 0.5px, transparent 0.7px)", backgroundSize: "6px 6px" }} />
           {/* Partner (top) */}
           <div className="absolute top-3 left-1/2 -translate-x-1/2">
-            <SeatView player={partner} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[partner.seat]} active={activeSeats.includes(partner.seat)} round={s.musRound} dealFrom="top" />
+            <SeatView player={partner} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[partner.seat]} active={activeSeats.includes(partner.seat)} round={s.musRound} dealFrom="top" {...cardFx(partner.seat)} />
           </div>
           {/* Opponents (sides) */}
           <div className="absolute left-2 top-1/2 -translate-y-1/2">
-            <SeatView player={oppLeft} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[oppLeft.seat]} active={activeSeats.includes(oppLeft.seat)} round={s.musRound} dealFrom="left" />
+            <SeatView player={oppLeft} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[oppLeft.seat]} active={activeSeats.includes(oppLeft.seat)} round={s.musRound} dealFrom="left" {...cardFx(oppLeft.seat)} />
           </div>
           <div className="absolute right-2 top-1/2 -translate-y-1/2">
-            <SeatView player={oppRight} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[oppRight.seat]} active={activeSeats.includes(oppRight.seat)} round={s.musRound} dealFrom="right" />
+            <SeatView player={oppRight} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[oppRight.seat]} active={activeSeats.includes(oppRight.seat)} round={s.musRound} dealFrom="right" {...cardFx(oppRight.seat)} />
           </div>
           {/* Center */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -174,20 +198,32 @@ export default function MusTable() {
               {s.seatActions[me] && <ActionBubble key={s.seatActions[me]} text={s.seatActions[me]!} big />}
             </AnimatePresence>
           </div>
-          <div className="flex w-full justify-center gap-1 px-1 sm:gap-2">
-            <AnimatePresence mode="popLayout">
-              {you.cards.map((c, i) => (
-                <MusCard
-                  key={`${s.musRound}-${c.rank}-${c.suit}-${i}`}
-                  card={c}
-                  delay={i * 0.09}
-                  dealFrom="bottom"
-                  selected={s.phase === "discard" && s.discardSelection.includes(i)}
-                  onClick={s.phase === "discard" ? () => s.toggleDiscard(i) : undefined}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
+          <Reorder.Group
+            axis="x" values={handOrder} onReorder={setHandOrder}
+            className="flex w-full justify-center gap-1 px-1 sm:gap-2 list-none"
+          >
+            {handOrder.filter((i) => i < you.cards.length).map((i) => {
+              const c = you.cards[i];
+              return (
+                <Reorder.Item
+                  key={`${c.rank}-${c.suit}-${i}`}
+                  value={i}
+                  drag={s.phase !== "discard"}
+                  whileDrag={{ scale: 1.08, zIndex: 20 }}
+                  className="cursor-grab active:cursor-grabbing"
+                >
+                  <MusCard
+                    card={c}
+                    delay={i * 0.09}
+                    dealFrom="bottom"
+                    selected={s.phase === "discard" && s.discardSelection.includes(i)}
+                    onClick={s.phase === "discard" ? () => s.toggleDiscard(i) : undefined}
+                    {...cardFx(me)}
+                  />
+                </Reorder.Item>
+              );
+            })}
+          </Reorder.Group>
           <PlayerTag player={you} manoSeat={s.manoSeat} active={activeSeats.includes(me)} />
         </div>
 
@@ -236,7 +272,7 @@ export default function MusTable() {
           )}
 
           {(s.phase === "showdown" || s.phase === "handEnd" || s.phase === "vacaEnd" || s.phase === "gameEnd") && (
-            <Recuento store={s} />
+            <Recuento store={s} selLance={selLance} onSelLance={setSelLance} />
           )}
         </div>
       </div>
@@ -308,8 +344,8 @@ function CenterInfo({ phase, lanceLabel, stake, message, isOrdago, declaring }: 
   );
 }
 
-function SeatView({ player, manoSeat, reveal, action, active, round, dealFrom }: {
-  player: MusPlayer; manoSeat: number; reveal: boolean; action: string | null; active: boolean; round: number; dealFrom: "top" | "left" | "right";
+function SeatView({ player, manoSeat, reveal, action, active, round, dealFrom, highlight, dimmed }: {
+  player: MusPlayer; manoSeat: number; reveal: boolean; action: string | null; active: boolean; round: number; dealFrom: "top" | "left" | "right"; highlight?: boolean; dimmed?: boolean;
 }) {
   return (
     <div className="flex flex-col items-center gap-1 w-[132px]">
@@ -321,7 +357,7 @@ function SeatView({ player, manoSeat, reveal, action, active, round, dealFrom }:
       <PlayerTag player={player} manoSeat={manoSeat} active={active} onFelt />
       <div className="flex gap-0.5">
         {player.cards.map((c, i) => (
-          <MusCard key={`${round}-${c.rank}-${c.suit}-${i}`} card={reveal ? c : undefined} hidden={!reveal} mini delay={i * 0.09} dealFrom={dealFrom} />
+          <MusCard key={`${round}-${c.rank}-${c.suit}-${i}`} card={reveal ? c : undefined} hidden={!reveal} mini delay={i * 0.09} dealFrom={dealFrom} highlight={reveal && highlight} dimmed={reveal && dimmed} />
         ))}
       </div>
     </div>
@@ -352,30 +388,74 @@ function ActionBubble({ text, big }: { text: string; big?: boolean }) {
   );
 }
 
-function Recuento({ store }: { store: MusStore }) {
+function Recuento({ store, selLance, onSelLance }: { store: MusStore; selLance: Lance | null; onSelLance: (l: Lance | null) => void }) {
   const s = store;
+  const end = s.phase === "vacaEnd" || s.phase === "gameEnd";
+
+  if (end) {
+    const won = s.ordagoVaca === "A" || (s.phase === "gameEnd" && s.winnerTeam === "A");
+    const gameOver = s.phase === "gameEnd";
+    return (
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-3 w-full max-w-sm">
+        <motion.div
+          initial={{ rotate: -8, scale: 0.8 }} animate={{ rotate: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 14 }}
+          className={`text-4xl ${won ? "" : "grayscale opacity-70"}`}
+        >{gameOver ? (won ? "🏆" : "🥈") : (won ? "🎉" : "💪")}</motion.div>
+        <span className="text-lg font-semibold text-center">
+          {gameOver ? (won ? "¡Ganáis la partida!" : "Partida perdida") : (won ? "¡Vaca para nosotros!" : "Vaca para ellos")}
+        </span>
+        <div className="flex items-center gap-4 rounded-2xl border border-border px-5 py-3">
+          <TeamTally label="Nosotros" vacas={s.vacas.A} need={s.config.bestOf === 3 ? 2 : 3} win={s.vacas.A > s.vacas.B} />
+          <span className="text-xs text-muted">vacas</span>
+          <TeamTally label="Ellos" vacas={s.vacas.B} need={s.config.bestOf === 3 ? 2 : 3} win={s.vacas.B > s.vacas.A} />
+        </div>
+        <button onClick={() => s.nextHand()} className="w-full max-w-xs rounded-xl border border-foreground bg-foreground text-background px-4 py-3.5 text-sm font-medium active:scale-95 transition">
+          {gameOver ? "Nueva partida" : "Siguiente vaca"}
+        </button>
+      </motion.div>
+    );
+  }
+
+  const rows = s.handScores.filter((ls) => ls.points > 0 || ls.winnerTeam);
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-2 w-full max-w-sm">
-      {s.phase === "gameEnd" ? (
-        <span className="text-lg font-medium">{s.winnerTeam === "A" ? "¡Ganáis la partida!" : "Partida perdida"}</span>
-      ) : s.phase === "vacaEnd" ? (
-        <span className="text-base font-medium">{s.ordagoVaca === "A" ? "¡Vaca para nosotros!" : "Vaca para ellos"}</span>
-      ) : (
-        <div className="grid w-full grid-cols-1 gap-1.5">
-          {s.handScores.filter((ls) => ls.points > 0 || ls.winnerTeam).map((ls, i) => (
-            <span key={i} className={`text-[10px] px-2 py-1 rounded-lg border ${ls.winnerTeam === "A" ? "border-correct text-correct" : "border-border text-muted"}`}>
+      <span className="text-[10px] text-muted">Toca un lance para ver la mano ganadora</span>
+      <div className="grid w-full grid-cols-1 gap-1.5">
+        {rows.map((ls, i) => {
+          const active = selLance === ls.lance;
+          return (
+            <button
+              key={i}
+              onClick={() => onSelLance(active ? null : ls.lance)}
+              className={`text-left text-[10px] px-2 py-1.5 rounded-lg border transition-colors ${
+                active ? "border-yellow-400 ring-1 ring-yellow-400 text-foreground" : ls.winnerTeam === "A" ? "border-correct text-correct" : "border-border text-muted"
+              }`}
+            >
               <b>{ls.isPunto ? "Punto" : LANCE_LABEL[ls.lance]}</b> · {ls.winnerTeam === "A" ? "Nosotros" : ls.winnerTeam === "B" ? "Ellos" : "—"} {ls.points > 0 ? `+${ls.points}` : ""}
               {ls.detail ? <span className="opacity-60"> · {ls.detail}</span> : null}
-            </span>
-          ))}
-        </div>
-      )}
+            </button>
+          );
+        })}
+      </div>
       <button
         onClick={() => s.nextHand()}
         className="w-full max-w-xs rounded-xl border border-foreground bg-foreground text-background px-4 py-3.5 text-sm font-medium active:scale-95 transition"
       >
-        {s.phase === "gameEnd" ? "Nueva partida" : "Siguiente mano"}
+        Siguiente mano
       </button>
     </motion.div>
+  );
+}
+
+function TeamTally({ label, vacas, need, win }: { label: string; vacas: number; need: number; win: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span className={`text-[10px] uppercase tracking-widest ${win ? "text-accent" : "text-muted"}`}>{label}</span>
+      <div className="flex gap-1">
+        {Array.from({ length: need }).map((_, i) => (
+          <span key={i} className={`w-2.5 h-2.5 rounded-full ${i < vacas ? "bg-accent" : "bg-border"}`} />
+        ))}
+      </div>
+    </div>
   );
 }
