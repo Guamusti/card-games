@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import type { HumanBetAction } from "@/engine/mus/store";
+import { buzz } from "@/engine/mus/haptics";
 
 interface LanceBarProps {
   /** "open" = no live envite (paso/envido/órdago); "respond" = answer an envite. */
@@ -15,12 +16,30 @@ const PRESETS = [2, 4, 6, 10];
 
 export default function LanceBar({ mode, currentStake, onBet }: LanceBarProps) {
   const [showEnvido, setShowEnvido] = useState(false);
+  const [confirmOrdago, setConfirmOrdago] = useState(false);
   const [custom, setCustom] = useState(2);
 
   const send = (amount: number) => {
     setShowEnvido(false);
+    buzz("envite");
     onBet(mode === "open" ? { type: "envido", amount } : { type: "subir", amount });
   };
+
+  // Órdago risks the whole vaca, so it takes a second, deliberate tap.
+  if (confirmOrdago) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-2 w-full max-w-md mx-auto">
+        <div className="rounded-xl border border-accent/40 bg-accent/5 px-3 py-2 text-center">
+          <span className="text-sm font-medium text-accent">¿Lanzar órdago?</span>
+          <p className="text-[11px] text-muted">Te juegas la vaca entera en este lance.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Btn variant="ghost" onClick={() => setConfirmOrdago(false)}>Cancelar</Btn>
+          <Btn variant="accent" onClick={() => { setConfirmOrdago(false); buzz("ordago"); onBet({ type: "ordago" }); }}>¡Órdago!</Btn>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-2 w-full max-w-md mx-auto">
@@ -42,18 +61,18 @@ export default function LanceBar({ mode, currentStake, onBet }: LanceBarProps) {
         </div>
       ) : mode === "open" ? (
         <div className="grid grid-cols-2 gap-2">
-          <Btn variant="ghost" onClick={() => onBet({ type: "paso" })}>Paso</Btn>
-          <Btn variant="ghost" onClick={() => onBet({ type: "hasta" })}>Hasta mi compañero</Btn>
+          <Btn variant="ghost" onClick={() => { buzz("tap"); onBet({ type: "paso" }); }}>Paso</Btn>
+          <Btn variant="ghost" onClick={() => { buzz("tap"); onBet({ type: "hasta" }); }}>Hasta mi compañero</Btn>
           <Btn onClick={() => setShowEnvido(true)}>Envido</Btn>
-          <Btn variant="accent" onClick={() => onBet({ type: "ordago" })}>Órdago</Btn>
+          <Btn variant="accent" onClick={() => setConfirmOrdago(true)}>Órdago</Btn>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          <Btn variant="ghost" onClick={() => onBet({ type: "paso" })}>Paso</Btn>
-          <Btn variant="ghost" onClick={() => onBet({ type: "noquiero" })}>No quiero</Btn>
-          <Btn variant="correct" onClick={() => onBet({ type: "quiero" })}>Quiero ({currentStake})</Btn>
+          <Btn variant="ghost" onClick={() => { buzz("tap"); onBet({ type: "paso" }); }}>Paso</Btn>
+          <Btn variant="ghost" onClick={() => { buzz("tap"); onBet({ type: "noquiero" }); }}>No quiero</Btn>
+          <Btn variant="correct" onClick={() => { buzz("quiero"); onBet({ type: "quiero" }); }}>Quiero ({currentStake})</Btn>
           <Btn onClick={() => setShowEnvido(true)}>Veo y subo</Btn>
-          <Btn variant="accent" onClick={() => onBet({ type: "ordago" })}>Órdago</Btn>
+          <Btn variant="accent" onClick={() => setConfirmOrdago(true)}>Órdago</Btn>
         </div>
       )}
     </motion.div>

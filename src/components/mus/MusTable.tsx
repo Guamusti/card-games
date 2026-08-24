@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMusStore, type MusStore } from "@/engine/mus/store";
 import type { MusPlayer } from "@/engine/mus/types";
 import { teamOfSeat, LANCE_LABEL } from "@/engine/mus/types";
 import { evaluateMusHand } from "@/engine/mus/rules";
+import { buzz } from "@/engine/mus/haptics";
 import MusCard from "./MusCard";
 import MusAvatar from "./MusAvatar";
 import ScoreBoard from "./ScoreBoard";
 import LanceBar from "./LanceBar";
+import MusHelp from "./MusHelp";
 import { useCustomizeStore, type TableFelt } from "@/engine/customize/store";
 import { useMusStatsStore } from "@/engine/mus/stats";
 import RoomChat from "./RoomChat";
@@ -26,6 +28,7 @@ export default function MusTable() {
   const s = useMusStore();
   const recordedResults = useRef(new Set<string>());
   const tableFelt = useCustomizeStore((state) => state.tableFelt);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     if (s.phase === "idle" && s.mode === "solo") s.startSolo();
@@ -77,9 +80,60 @@ export default function MusTable() {
       activeSeats = rt.order.filter((se) => teamOfSeat(se) === respondTeam && !(rt.responsePassedSeats ?? []).includes(se));
     }
   }
+  const myTurn = musTurnHuman || humanTurnInLance;
+  const waitingSeat = activeSeats.find((se) => se !== me) ?? activeSeats[0];
+  const waitingName = waitingSeat != null && s.players.length ? seat(waitingSeat).name : null;
+
+  // Haptic nudge when it becomes the human's turn.
+  useEffect(() => { if (myTurn) buzz("turn"); }, [myTurn, s.currentLance, s.phase, s.musActiveIdx]);
+
+  // Haptic on hand/vaca/game resolution (win vs loss for the local team).
+  const settledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!(["handEnd", "vacaEnd", "gameEnd"] as string[]).includes(s.phase)) { settledRef.current = null; return; }
+    const key = `${s.dealerSeat}-${s.musRound}-${s.phase}`;
+    if (settledRef.current === key) return;
+    settledRef.current = key;
+    const own = teamOfSeat(me);
+    const ownPts = s.handScores.filter((x) => x.winnerTeam === own).reduce((a, x) => a + x.points, 0);
+    const oppPts = s.handScores.filter((x) => x.winnerTeam && x.winnerTeam !== own).reduce((a, x) => a + x.points, 0);
+    const won = s.ordagoVaca ? s.ordagoVaca === own : ownPts >= oppPts;
+    buzz(won ? "win" : "lose");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.phase, s.musRound, s.dealerSeat]);
+
+  // Keyboard shortcuts (desktop). Only fire on the human's turn / at recuento.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const k = e.key.toLowerCase();
+      const recuento = ["showdown", "handEnd", "vacaEnd", "gameEnd"].includes(s.phase);
+      if (recuento && (k === "enter" || k === " ")) { e.preventDefault(); s.nextHand(); return; }
+      if (s.phase === "mus" && musTurnHuman) {
+        if (k === "m") s.voteMus(true);
+        else if (k === "n") s.voteMus(false);
+        return;
+      }
+      if (!isLance || !humanTurnInLance) return;
+      if (k === "p") s.humanBet({ type: "paso" });
+      else if (k === "q" && liveEnviteForUs) { buzz("quiero"); s.humanBet({ type: "quiero" }); }
+      else if (k === "n" && liveEnviteForUs) s.humanBet({ type: "noquiero" });
+      else if (k === "e" && !liveEnviteForUs) { buzz("envite"); s.humanBet({ type: "envido", amount: 2 }); }
+      else if (k === "s" && liveEnviteForUs) { buzz("envite"); s.humanBet({ type: "subir", amount: 2 }); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.phase, musTurnHuman, isLance, humanTurnInLance, liveEnviteForUs]);
 
   return (
     <div className="flex flex-col min-h-[100dvh] px-3 pt-12 pb-3">
+      <button
+        onClick={() => setHelpOpen(true)}
+        aria-label="Reglas del Mus"
+        className="absolute top-3 right-3 z-20 w-7 h-7 rounded-full border border-border text-muted hover:text-foreground hover:border-foreground flex items-center justify-center text-sm font-semibold"
+      >?</button>
+      <MusHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <div className="w-full max-w-md mx-auto flex flex-col gap-3 flex-1">
         <ScoreBoard
           scoreA={s.score.A} scoreB={s.score.B}
@@ -141,10 +195,13 @@ export default function MusTable() {
         <div className="min-h-[104px] flex items-center justify-center">
           {s.phase === "mus" && musTurnHuman && (
             <div className="grid grid-cols-3 gap-2 w-full max-w-sm">
-              <button onClick={() => s.voteMus(true)} className="rounded-xl border border-foreground bg-foreground text-background px-4 py-3.5 text-sm font-medium active:scale-95 transition">Mus</button>
-              <button onClick={() => s.voteMus(false)} className="rounded-xl border border-border px-4 py-3.5 text-sm font-medium text-muted hover:text-foreground hover:border-foreground active:scale-95 transition">No hay mus</button>
-              <button onClick={() => s.voteMus(false, "Hasta mi compañero")} className="rounded-xl border border-border px-3 py-3.5 text-sm font-medium text-muted hover:text-foreground hover:border-foreground active:scale-95 transition">Hasta mi compañero</button>
+              <button onClick={() => { buzz("tap"); s.voteMus(true); }} className="rounded-xl border border-foreground bg-foreground text-background px-4 py-3.5 text-sm font-medium active:scale-95 transition">Mus</button>
+              <button onClick={() => { buzz("tap"); s.voteMus(false); }} className="rounded-xl border border-border px-4 py-3.5 text-sm font-medium text-muted hover:text-foreground hover:border-foreground active:scale-95 transition">No hay mus</button>
+              <button onClick={() => { buzz("tap"); s.voteMus(false, "Hasta mi compañero"); }} className="rounded-xl border border-border px-3 py-3.5 text-sm font-medium text-muted hover:text-foreground hover:border-foreground active:scale-95 transition">Hasta mi compañero</button>
             </div>
+          )}
+          {s.phase === "mus" && !musTurnHuman && (
+            <WaitingFor name={waitingName} />
           )}
 
           {s.phase === "discard" && s.discardConfirmed.includes(me) && (
@@ -175,7 +232,7 @@ export default function MusTable() {
           )}
 
           {!s.declaring && isLance && !humanTurnInLance && (
-            <span className="text-xs text-muted animate-pulse">Esperando a los demás…</span>
+            <WaitingFor name={waitingName} />
           )}
 
           {(s.phase === "showdown" || s.phase === "handEnd" || s.phase === "vacaEnd" || s.phase === "gameEnd") && (
@@ -185,6 +242,20 @@ export default function MusTable() {
       </div>
       {s.mode === "online" && <RoomChat />}
     </div>
+  );
+}
+
+function WaitingFor({ name }: { name: string | null }) {
+  return (
+    <span className="text-xs text-muted flex items-center gap-1.5">
+      <span className="flex gap-0.5">
+        {[0, 1, 2].map((i) => (
+          <motion.span key={i} className="w-1 h-1 rounded-full bg-muted"
+            animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: i * 0.18 }} />
+        ))}
+      </span>
+      {name ? <>Turno de <b className="text-foreground/80">{name}</b></> : "Esperando…"}
+    </span>
   );
 }
 
