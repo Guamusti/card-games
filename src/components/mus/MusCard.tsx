@@ -90,8 +90,9 @@ export default function MusCard({
     );
   }
 
-  // ── Tradicional (Wikimedia): render the real card image ──
-  if (tradicional) {
+  // ── Image decks: Tradicional (Wikimedia) & Neón (line-art) ──
+  if (tradicional || neon) {
+    const folder = neon ? "neon" : "classic";
     return (
       <motion.button
         type="button"
@@ -101,12 +102,12 @@ export default function MusCard({
         animate={{ opacity: dimmed ? 0.4 : 1, scale: 1, x: 0, y: selected ? -12 : 0, rotate: 0 }}
         exit={dealExit}
         transition={dealTransition}
-        className={`${sizeClass} relative overflow-hidden rounded-[0.55rem] border select-none transition-colors ${glow} ${selected ? "border-accent ring-2 ring-accent" : "border-black/15"} ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.2)]" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`}
-        style={{ background: "#fff" }}
+        className={`${sizeClass} relative overflow-hidden rounded-[0.55rem] border select-none transition-colors ${glow} ${selected ? "border-accent ring-2 ring-accent" : neon ? "border-white/15" : "border-black/15"} ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.2)]" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`}
+        style={{ background: neon ? "#0a0d10" : "#fff" }}
         title={`${RANK_LABEL[card.rank]} de ${SUIT_NAME[card.suit]}`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`/mus/classic/${card.suit}_${card.rank}.webp`} alt="" draggable={false} className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+        <img src={`/mus/${folder}/${card.suit}_${card.rank}.webp`} alt="" draggable={false} className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
       </motion.button>
     );
   }

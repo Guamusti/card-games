@@ -330,10 +330,12 @@ export default function ShopPage() {
               <div className="grid grid-cols-3 gap-2.5">
                 {(["tradicional", "classic", "silueta", "minimal", "neon"] as MusDeckTheme[]).map((theme) => (
                   <button key={theme} onClick={() => customize.setMusDeckTheme(theme)} className={`rounded-xl border p-2 text-left transition ${customize.musDeckTheme === theme ? "border-foreground ring-1 ring-foreground" : "border-border"}`}>
-                    <div className={`h-16 rounded-lg mb-2 border overflow-hidden flex items-center justify-center ${theme === "neon" ? "bg-[#080909] border-[#78d8f5]" : theme === "minimal" ? "bg-white border-black/10" : "bg-[#fbfaf6] border-black/15"}`}>
+                    <div className={`h-16 rounded-lg mb-2 border overflow-hidden flex items-center justify-center ${theme === "neon" ? "bg-[#0a0d10] border-[#78d8f5]" : theme === "minimal" ? "bg-white border-black/10" : "bg-[#fbfaf6] border-black/15"}`}>
                       {theme === "tradicional"
                         ? <img src="/mus/classic/oros_12.webp" alt="" className="h-full w-auto object-contain" />
-                        : <span className="text-lg" style={{ color: theme === "neon" ? "#78d8f5" : theme === "minimal" ? "#33312d" : theme === "silueta" ? "#255a92" : "#b8322c" }}>♠</span>}
+                        : theme === "neon"
+                        ? <img src="/mus/neon/espadas_12.webp" alt="" className="h-full w-auto object-contain" />
+                        : <span className="text-lg" style={{ color: theme === "minimal" ? "#33312d" : theme === "silueta" ? "#255a92" : "#b8322c" }}>♠</span>}
                     </div>
                     <span className="text-[11px] font-medium">{DECK_LABEL[theme]}</span>
                   </button>
