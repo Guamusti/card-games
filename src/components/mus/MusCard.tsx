@@ -3,9 +3,10 @@
 import { motion } from "framer-motion";
 import type { SpanishCard, SpanishRank } from "@/engine/mus/types";
 import { RANK_SHORT, RANK_LABEL, SUIT_NAME } from "@/engine/mus/types";
-import SpanishSuit, { SUIT_COLOR, NEON_SUIT_COLOR, SUIT_PINTA } from "./SpanishSuit";
+import SpanishSuit, { SUIT_PINTA, suitColor } from "./SpanishSuit";
 import MusFigure from "./MusFigure";
 import { useCustomizeStore } from "@/engine/customize/store";
+import { getCardBack } from "@/engine/customize/cardBacks";
 
 interface MusCardProps {
   card?: SpanishCard;
@@ -48,8 +49,9 @@ const PIP_LAYOUT: Partial<Record<SpanishRank, [number, number][]>> = {
 export default function MusCard({
   card, hidden = false, delay = 0, small = false, mini = false, selected = false, dimmed = false, dealFrom, onClick,
 }: MusCardProps) {
-  const { showCardShadow, animationSpeed, musDeckTheme } = useCustomizeStore();
+  const { showCardShadow, animationSpeed, musDeckTheme, cardBack } = useCustomizeStore();
   const neon = musDeckTheme === "neon";
+  const minimal = musDeckTheme === "minimal";
   const dur = animationSpeed === "fast" ? 0.28 : animationSpeed === "slow" ? 0.55 : 0.38;
   const sizeClass = mini ? "mus-card-mini" : small ? "mus-card-sm" : "mus-card";
   const origin = dealOrigin(dealFrom);
@@ -59,30 +61,29 @@ export default function MusCard({
   const dealExit = { opacity: 0, scale: 0.62, x: origin.x * 0.55, y: origin.y * 0.55, rotate: origin.rotate * 0.6, transition: { duration: dur * 0.7, ease: [0.4, 0, 1, 1] as const } };
   const dealTransition = { duration: dur * 1.25, delay, ease: [0.16, 1, 0.3, 1] as const };
 
-  // ── Face down ─────────────────────────────────────────────
+  // ── Face down — uses the card back chosen in the cosmetics shop ──
   if (hidden || !card) {
-    const lattice = neon
-      ? "repeating-linear-gradient(45deg, rgba(120,216,245,0.16) 0 2px, transparent 2px 7px), repeating-linear-gradient(-45deg, rgba(120,216,245,0.16) 0 2px, transparent 2px 7px)"
-      : "repeating-linear-gradient(45deg, rgba(255,255,255,0.10) 0 2px, transparent 2px 7px), repeating-linear-gradient(-45deg, rgba(255,255,255,0.10) 0 2px, transparent 2px 7px)";
+    const back = getCardBack(cardBack);
+    const labelSize = mini ? 9 : small ? 13 : 18;
     return (
       <motion.div
         initial={dealInitial}
         animate={{ opacity: 1, scale: 1, x: 0, y: 0, rotate: 0 }}
         exit={dealExit}
         transition={dealTransition}
-        className={`${sizeClass} relative overflow-hidden rounded-[0.65rem] border select-none ${neon ? "border-white/20" : "border-[#5f121b]"} ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.22)]" : ""}`}
-        style={{ background: neon ? "#0a0d10" : "#8a1f2a" }}
+        className={`${sizeClass} relative overflow-hidden rounded-[0.65rem] border border-black/40 select-none ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.22)]" : ""}`}
+        style={{ background: back.bg }}
       >
-        <div aria-hidden className="absolute inset-0" style={{ backgroundImage: lattice }} />
-        <div aria-hidden className={`absolute rounded-[0.42rem] border ${neon ? "border-white/20" : "border-white/30"}`} style={{ inset: mini ? 3 : 4 }} />
+        {back.pattern && <div aria-hidden className="absolute inset-0" style={{ backgroundImage: back.pattern }} />}
+        <div aria-hidden className="absolute rounded-[0.42rem] border border-white/15" style={{ inset: mini ? 3 : 4 }} />
         <div aria-hidden className="absolute inset-0 flex items-center justify-center">
-          <div className={`rotate-45 border ${neon ? "border-[#78d8f5]/50" : "border-white/35"}`} style={{ width: mini ? 10 : small ? 16 : 22, height: mini ? 10 : small ? 16 : 22 }} />
+          <span className="font-semibold" style={{ color: back.labelColor, fontSize: labelSize }}>{back.label}</span>
         </div>
       </motion.div>
     );
   }
 
-  const color = neon ? NEON_SUIT_COLOR[card.suit] : SUIT_COLOR[card.suit];
+  const color = suitColor(card.suit, musDeckTheme);
   const rank = RANK_SHORT[card.rank];
   const isFigure = card.rank >= 10;
   const indexSize = mini ? 8 : small ? 11 : 14;
@@ -142,16 +143,18 @@ export default function MusCard({
       className={`${sizeClass} relative overflow-hidden rounded-[0.65rem] border select-none transition-colors ${
         neon
           ? `bg-[#080909] ${selected ? "border-white ring-2 ring-white/70" : "border-white/25"}`
+          : minimal
+          ? `bg-white ${selected ? "border-accent ring-2 ring-accent" : "border-[#e6e4df]"}`
           : `${selected ? "border-accent ring-2 ring-accent" : "border-[#c9c2b5]"}`
       } ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.18)]" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`}
-      style={neon ? undefined : { background: "linear-gradient(160deg, #fdfbf4 0%, #f4efe1 100%)" }}
+      style={neon ? undefined : minimal ? { background: "#ffffff" } : { background: "linear-gradient(160deg, #fdfbf4 0%, #f4efe1 100%)" }}
       title={title}
     >
       {/* Inner rule, as on a printed card. */}
       <div
         aria-hidden
         className={`pointer-events-none absolute rounded-[0.45rem] border ${neon ? "border-dashed" : ""}`}
-        style={{ inset: mini ? 2 : 3, borderColor: neon ? `${color}aa` : "#d9d1c2" }}
+        style={{ inset: mini ? 2 : 3, borderColor: neon ? `${color}aa` : minimal ? "#eeeeee" : "#d9d1c2" }}
       />
       {/* Court cards get a tinted panel so they read apart from the numbers. */}
       {isFigure && !mini && (

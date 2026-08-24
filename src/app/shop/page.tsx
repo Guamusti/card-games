@@ -324,11 +324,13 @@ export default function ShopPage() {
             </Section>
 
             <Section title="Baraja de Mus">
-              <div className="grid grid-cols-2 gap-2.5">
-                {(["classic", "neon"] as MusDeckTheme[]).map((theme) => (
+              <div className="grid grid-cols-3 gap-2.5">
+                {(["classic", "minimal", "neon"] as MusDeckTheme[]).map((theme) => (
                   <button key={theme} onClick={() => customize.setMusDeckTheme(theme)} className={`rounded-xl border p-3 text-left transition ${customize.musDeckTheme === theme ? "border-foreground ring-1 ring-foreground" : "border-border"}`}>
-                    <div className={`h-16 rounded-lg mb-2 border ${theme === "neon" ? "bg-[#080909] border-[#78d8f5]" : "bg-[#fbfaf6] border-black/15"}`} />
-                    <span className="text-xs font-medium">{theme === "classic" ? "Clásica española" : "Neón minimalista"}</span>
+                    <div className={`h-16 rounded-lg mb-2 border flex items-center justify-center ${theme === "neon" ? "bg-[#080909] border-[#78d8f5]" : theme === "minimal" ? "bg-white border-black/10" : "bg-[#fbfaf6] border-black/15"}`}>
+                      <span className="text-lg" style={{ color: theme === "neon" ? "#78d8f5" : theme === "minimal" ? "#33312d" : "#b8322c" }}>♠</span>
+                    </div>
+                    <span className="text-xs font-medium">{theme === "classic" ? "Clásica" : theme === "minimal" ? "Minimalista" : "Neón"}</span>
                   </button>
                 ))}
               </div>

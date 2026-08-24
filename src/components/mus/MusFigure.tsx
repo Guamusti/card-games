@@ -30,23 +30,34 @@ export default function MusFigure({ rank, suit, height = 48, color, className }:
   const dot = { fill: "currentColor", stroke: "none" as const };
 
   // ── Court motifs, drawn around a local origin (facing left) ──
+  // Sota — a page's head with a soft plumed cap.
   const plumeHead = (tx: number, ty: number, s: number) => (
     <g transform={`translate(${tx},${ty}) scale(${s})`}>
-      <circle cx="0" cy="0" r="6.6" {...g} />
-      <path {...gt} d="M-6.4 0 l-2.4 1.7 2.4 1.5" />
-      <circle cx="-3.4" cy="-1.4" r="0.9" {...dot} />
-      <path {...gt} d="M-5 3.4 H-1.2" />
-      <path {...g} d="M-6.8 -4.6 C-4.4 -8 0.2 -9 4.4 -7.2 C6.8 -6.2 7.8 -4 7.4 -1.6" />
-      <path {...g} d="M4 -6.8 C7.4 -11 11.4 -11.4 13 -8.4 C10.2 -7.4 8 -5.2 7 -2.4" />
+      <circle cx="0" cy="0.4" r="6.4" {...g} />
+      <path {...gt} d="M-6.2 0.4 l-2.4 1.6 2.4 1.5" />
+      <circle cx="-3.2" cy="-1.1" r="0.85" {...dot} />
+      <path {...gt} d="M-4.8 3.6 H-1.2" />
+      {/* soft beret + brim band */}
+      <path {...g} d="M-6.6 -3.4 C-5.4 -7.4 0.4 -9.4 5 -7.2 C7.2 -6.1 7.8 -3.8 6.8 -1.8" />
+      <path {...gt} d="M-6 -2.4 C-3 -4 3.4 -4 6.2 -2.2" />
+      {/* plume curling up and back, with two barbs */}
+      <path {...g} d="M5.6 -6.6 C9.2 -11.2 12.8 -11 13.6 -7.6 C10.8 -7.4 8.4 -5.6 7.2 -3" />
+      <path {...gt} d="M9.4 -8.8 c1.2 .2 1.9 1 2 2.1 M11.6 -9 c1.1 .3 1.7 1.1 1.7 2.2" />
     </g>
   );
 
+  // Caballo — a horse's head in profile with ear, mane, eye and nostril.
   const horseHead = (tx: number, ty: number, s: number) => (
     <g transform={`translate(${tx},${ty}) scale(${s})`}>
-      <path {...g} d="M7 10 C7.4 4 5.2 -1.2 0.6 -3.4 l1.8 -4 -4.4 1.2 C-6.4 -4 -9 0.2 -9 5 C-9 7.4 -8 9.4 -6.2 10.8 L-8 12 L-5.6 12.6 C-3 13 1.4 12.8 4 11.6 C5.4 11 6.4 10.6 7 10Z" />
-      <circle cx="-3.6" cy="1.4" r="1.1" {...dot} />
-      <path {...gt} d="M-8.4 6.6 c1.4 -.2 2.4 .4 2.8 1.6" />
-      <path {...gt} d="M2 -2 c3 1.4 4.2 4.4 3.4 7.6" />
+      <path {...g} d="M7 10 C7.6 3.8 5.4 -1.4 0.8 -3.6 L2.4 -7.8 C1 -8.4 -0.4 -8 -1.4 -6.8 L-2 -5.4 C-4.6 -4.4 -7.4 -1.4 -8.4 2 C-9.2 4.8 -8.8 7.6 -6.4 10.6 L-8 12 L-5.6 12.6 C-3 13 1.4 12.8 4 11.6 C5.4 11 6.4 10.6 7 10Z" />
+      {/* ear */}
+      <path {...g} d="M1.4 -7.4 L3 -10.2 L4.2 -7 Z" />
+      {/* eye + nostril */}
+      <circle cx="-3.4" cy="0.6" r="1.05" {...dot} />
+      <path {...gt} d="M-7.6 6.2 c1.2 -.2 2.1 .4 2.4 1.5" />
+      {/* mane down the crest */}
+      <path {...gt} d="M2.6 -3 c3.2 1.4 4.6 4.6 3.8 8.4" />
+      <path {...gt} d="M4.6 -0.6 c1.8 1.4 2.6 3.6 2.2 6" />
     </g>
   );
 
@@ -121,13 +132,15 @@ export default function MusFigure({ rank, suit, height = 48, color, className }:
     );
   }
 
-  // ── Bastos: club upright, motif over the knobbly head ──
+  // ── Bastos: knotty cudgel upright, motif over the knobbly head ──
   return (
     <svg {...common}>
-      <path {...g} d="M18.5 55 C16.6 56 14.4 54.2 15.2 52 L19.4 40 C17.6 38.6 17 36.2 18 33.2 C19.6 28.4 25 27 29.4 28 C34.6 29.2 36.4 33.8 34 37.6 C32.2 40.4 29 41.2 26.4 40.2 L22.4 52.2 C21.7 54.2 20.1 55.4 18.5 55Z" />
-      <path {...gt} d="M18.8 38.5 c2.2 -.2 3.7 1 4.2 3" />
-      <path {...gt} d="M27 30 c2.2 .5 3.5 2 3.7 4" />
-      {motif(24, 16, 1.15)}
+      <path {...g} d="M18.4 55.4 C16.6 56.4 14.2 54.8 15.1 52.4 L20.6 40 C18.9 37.7 19.6 33.6 22.6 31.9 C26.4 29.7 31.2 31 32.6 34.4 C33.5 36.6 32.7 38.8 30.8 40 C32.6 41 33.2 43.4 31.8 45.1 C30.4 46.8 27.8 46.3 26.6 44.4 C25 45.3 22.6 44.9 21.4 43.2 L18.4 55.4Z" />
+      <path {...gt} d="M31 32.4 L34.4 30.4" />
+      <path {...gt} d="M32.6 39 L36 38.6" />
+      <path {...gt} d="M20.4 44.4 c2 -.6 3.7 .3 4.2 2.3" />
+      <path {...gt} d="M22.6 38.2 c2 -.6 3.7 .3 4.2 2.3" />
+      {motif(24, 17, 1.15)}
     </svg>
   );
 }

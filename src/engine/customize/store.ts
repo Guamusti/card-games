@@ -22,7 +22,7 @@ export type AccentColor = "red" | "blue" | "purple" | "emerald" | "amber" | "ros
 export type TableFelt = "none" | "subtle" | "green" | "blue" | "wine";
 
 export type SuitColorScheme = "classic" | "four-color" | "blue-red" | "mono" | "tokyo";
-export type MusDeckTheme = "classic" | "neon";
+export type MusDeckTheme = "classic" | "neon" | "minimal";
 
 export const PLAYER_AVATARS = ["🐶", "🐱", "🐻", "🦊", "🐼", "🐨", "🦁", "🐯", "🐸", "🐵", "🦄", "🐲"] as const;
 export type PlayerAvatar = (typeof PLAYER_AVATARS)[number];

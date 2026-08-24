@@ -1,6 +1,7 @@
 "use client";
 
 import type { SpanishSuit } from "@/engine/mus/types";
+import type { MusDeckTheme } from "@/engine/customize/store";
 
 export const SUIT_COLOR: Record<SpanishSuit, string> = {
   oros: "#c8901a",
@@ -16,6 +17,13 @@ export const NEON_SUIT_COLOR: Record<SpanishSuit, string> = {
   bastos: "#8bd650",
 };
 
+/** Minimalist deck: a single muted ink for every suit. */
+export const MINIMAL_INK = "#33312d";
+
+export function suitColor(suit: SpanishSuit, theme: MusDeckTheme): string {
+  return theme === "neon" ? NEON_SUIT_COLOR[suit] : theme === "minimal" ? MINIMAL_INK : SUIT_COLOR[suit];
+}
+
 /** Pinta count: how many corner marks identify each suit on a Spanish deck. */
 export const SUIT_PINTA: Record<SpanishSuit, number> = {
   oros: 1,
@@ -28,7 +36,7 @@ interface Props {
   suit: SpanishSuit;
   size?: number;
   className?: string;
-  theme?: "classic" | "neon";
+  theme?: MusDeckTheme;
 }
 
 /**
@@ -37,7 +45,7 @@ interface Props {
  * crisp from a small pip to the big centre symbol.
  */
 export default function SpanishSuit({ suit, size = 24, className, theme = "classic" }: Props) {
-  const color = theme === "neon" ? NEON_SUIT_COLOR[suit] : SUIT_COLOR[suit];
+  const color = suitColor(suit, theme);
   const on = 1.5 * 24 / size;
   const onThin = 1.0 * 24 / size;
   const base = { width: size, height: size, viewBox: "0 0 24 24", className, style: { color } } as const;
@@ -89,15 +97,15 @@ export default function SpanishSuit({ suit, size = 24, className, theme = "class
         </svg>
       );
 
-    // ── Bastos: knotted cudgel — knobbly head, lopped stubs, tapered handle ──
+    // ── Bastos: knotty cudgel — bulbous head, lopped stubs, tapered handle ──
     case "bastos":
       return (
         <svg {...base}>
-          <path {...g} d="M8.4 21.2 C7.2 21.9 5.8 20.8 6.4 19.5 L9.6 12.8 C8.5 11.7 8.4 9.9 9.4 8.4 C11 6 14.6 5.6 17 7.2 C19.4 8.8 19.6 12 17.4 13.6 C16 14.6 14.2 14.5 13 13.6 L9.9 20 C9.4 21.1 8.9 21.6 8.4 21.2Z" />
-          <path {...gt} d="M10 11.7 C11.2 11.6 12.1 12.3 12.4 13.6" />
-          <path {...gt} d="M10.3 9 C11.3 8.1 12.7 8.1 13.7 9" />
-          <path {...gt} d="M16.6 6.4 L18.6 5" />
-          <path {...gt} d="M18.2 9.4 L20 8.6" />
+          <path {...g} d="M6.6 20.9 C5.5 21.6 4.1 20.6 4.7 19.3 L9.8 10 C8.9 8.1 9.6 5.9 11.6 5 C13.9 4 16.7 5.2 17.4 7.5 C17.9 8.9 17.5 10.3 16.5 11.2 C17.5 11.8 17.8 13.1 17 14 C16.1 14.9 14.7 14.6 14 13.6 C13.1 14.1 11.8 13.9 11 13 L6.6 20.9Z" />
+          <path {...gt} d="M16.6 6.6 L18.7 5.2" />
+          <path {...gt} d="M17.7 10.6 L19.9 10.2" />
+          <path {...gt} d="M9.7 14.8 c1.1 -.4 2.1 .2 2.4 1.3" />
+          <path {...gt} d="M11.6 11.2 c1.1 -.4 2.1 .2 2.4 1.3" />
         </svg>
       );
   }

@@ -257,6 +257,9 @@ function initialState(): MusState {
 
 // ─── Store ───────────────────────────────────────────────────
 
+/** Sentinel stake in a bet chain that marks an órdago (whole-vaca) bet. */
+const ORDAGO = 9999;
+
 export const useMusStore = create<MusStore>((set, get) => {
 
   function schedule(fn: () => void, ms = 750) {
@@ -519,6 +522,24 @@ export const useMusStore = create<MusStore>((set, get) => {
     }, 800 + Math.random() * 500);
   }
 
+  /**
+   * Piedras won when an envite is declined. The refuser's opponents take the
+   * stake that was standing BEFORE the refused bet — not a flat 1:
+   *  • first envite refused        → 1
+   *  • raised (e.g. 4 then +2)      → the previous accepted amount (4)
+   *  • órdago over a live envite    → that live envite (e.g. 4), not 1
+   *  • opening órdago refused       → 1
+   */
+  function declineOutcome(bet: Bet): LanceOutcome {
+    const team = bet.envidoTeam!;
+    if (bet.isOrdago) {
+      const staked = bet.chain.filter((n) => n !== ORDAGO);
+      return { kind: "noquiero", payout: staked.length ? staked[staked.length - 1] : 1, envidoTeam: team };
+    }
+    const chain = bet.chain;
+    return { kind: "noquiero", payout: chain.length >= 2 ? chain[chain.length - 2] : 1, envidoTeam: team };
+  }
+
   function applyBet(seat: number, a: HumanBetAction) {
     const s = get();
     const lance = s.currentLance;
@@ -560,7 +581,7 @@ export const useMusStore = create<MusStore>((set, get) => {
         newRt.passesInRow = 0;
       } else if (a.type === "ordago") {
         actionText = "¡Órdago!";
-        newRt.bet.chain = [9999];
+        newRt.bet.chain = [ORDAGO];
         newRt.bet.envidoTeam = team;
         newRt.bet.isOrdago = true;
         newRt.passesInRow = 0;
@@ -573,11 +594,7 @@ export const useMusStore = create<MusStore>((set, get) => {
         newRt.responsePassedSeats = [...new Set([...(rt.responsePassedSeats ?? []), seat])];
         // Both partners have passed: it is equivalent to declining the envite.
         if (responseSeats.every((responder) => newRt.responsePassedSeats.includes(responder))) {
-          if (rt.bet.isOrdago) newRt.outcome = { kind: "ordago-noquiero", envidoTeam: rt.bet.envidoTeam! };
-          else {
-            const chain = rt.bet.chain;
-            newRt.outcome = { kind: "noquiero", payout: chain.length >= 2 ? chain[chain.length - 2] : 1, envidoTeam: rt.bet.envidoTeam! };
-          }
+          newRt.outcome = declineOutcome(rt.bet);
           finishLance(seat, actionText, lance, newRt);
           return;
         }
@@ -590,13 +607,7 @@ export const useMusStore = create<MusStore>((set, get) => {
         return;
       } else if (a.type === "noquiero") {
         actionText = "No quiero";
-        if (rt.bet.isOrdago) {
-          newRt.outcome = { kind: "ordago-noquiero", envidoTeam: rt.bet.envidoTeam! };
-        } else {
-          const chain = rt.bet.chain;
-          const payout = chain.length >= 2 ? chain[chain.length - 2] : 1;
-          newRt.outcome = { kind: "noquiero", payout, envidoTeam: rt.bet.envidoTeam! };
-        }
+        newRt.outcome = declineOutcome(rt.bet);
         finishLance(seat, actionText, lance, newRt);
         return;
       } else if (a.type === "subir") {
@@ -607,7 +618,7 @@ export const useMusStore = create<MusStore>((set, get) => {
         newRt.responsePassedSeats = [];
       } else if (a.type === "ordago") {
         actionText = "¡Órdago!";
-        newRt.bet.chain = [...rt.bet.chain, 9999];
+        newRt.bet.chain = [...rt.bet.chain, ORDAGO];
         newRt.bet.envidoTeam = team;
         newRt.bet.isOrdago = true;
         newRt.responsePassedSeats = [];
