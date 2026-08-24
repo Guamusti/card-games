@@ -1,0 +1,5 @@
+Spanish playing card artwork ("Baraja Española" / Naipes Libres)
+by Basquetteur (Wikimedia Commons).
+Licensed under CC BY-SA 3.0 — https://creativecommons.org/licenses/by-sa/3.0/
+Source: https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards
+Rasterized (SVG -> WebP, ~210px) for use in this app. No artwork was altered.

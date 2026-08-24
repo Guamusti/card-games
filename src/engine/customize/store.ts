@@ -22,7 +22,7 @@ export type AccentColor = "red" | "blue" | "purple" | "emerald" | "amber" | "ros
 export type TableFelt = "none" | "subtle" | "green" | "blue" | "wine";
 
 export type SuitColorScheme = "classic" | "four-color" | "blue-red" | "mono" | "tokyo";
-export type MusDeckTheme = "classic" | "neon" | "minimal";
+export type MusDeckTheme = "tradicional" | "classic" | "minimal" | "neon" | "silueta";
 
 export const PLAYER_AVATARS = ["🐶", "🐱", "🐻", "🦊", "🐼", "🐨", "🦁", "🐯", "🐸", "🐵", "🦄", "🐲"] as const;
 export type PlayerAvatar = (typeof PLAYER_AVATARS)[number];
@@ -131,7 +131,7 @@ const defaults: CustomizeState = {
   playerAvatar: "🐶",
   nickname: "",
   username: "",
-  musDeckTheme: "classic",
+  musDeckTheme: "tradicional",
   musDefaultVaca: 30,
   musDefaultBestOf: 3,
   musBotSpeed: "normal",

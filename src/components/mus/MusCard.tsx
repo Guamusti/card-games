@@ -4,7 +4,9 @@ import { motion } from "framer-motion";
 import type { SpanishCard, SpanishRank } from "@/engine/mus/types";
 import { RANK_SHORT, RANK_LABEL, SUIT_NAME } from "@/engine/mus/types";
 import SpanishSuit, { SUIT_PINTA, suitColor } from "./SpanishSuit";
+import SpanishSuitSolid from "./SpanishSuitSolid";
 import MusFigure from "./MusFigure";
+import MusFigureSolid from "./MusFigureSolid";
 import { useCustomizeStore } from "@/engine/customize/store";
 import { getCardBack } from "@/engine/customize/cardBacks";
 
@@ -52,6 +54,8 @@ export default function MusCard({
   const { showCardShadow, animationSpeed, musDeckTheme, cardBack } = useCustomizeStore();
   const neon = musDeckTheme === "neon";
   const minimal = musDeckTheme === "minimal";
+  const silueta = musDeckTheme === "silueta";
+  const tradicional = musDeckTheme === "tradicional";
   const dur = animationSpeed === "fast" ? 0.28 : animationSpeed === "slow" ? 0.55 : 0.38;
   const sizeClass = mini ? "mus-card-mini" : small ? "mus-card-sm" : "mus-card";
   const origin = dealOrigin(dealFrom);
@@ -83,7 +87,29 @@ export default function MusCard({
     );
   }
 
-  const color = suitColor(card.suit, musDeckTheme);
+  // ── Tradicional (Wikimedia): render the real card image ──
+  if (tradicional) {
+    return (
+      <motion.button
+        type="button"
+        onClick={onClick}
+        disabled={!onClick}
+        initial={dealInitial}
+        animate={{ opacity: dimmed ? 0.4 : 1, scale: 1, x: 0, y: selected ? -12 : 0, rotate: 0 }}
+        exit={dealExit}
+        transition={dealTransition}
+        className={`${sizeClass} relative overflow-hidden rounded-[0.55rem] border select-none transition-colors ${selected ? "border-accent ring-2 ring-accent" : "border-black/15"} ${showCardShadow ? "shadow-[0_4px_10px_rgba(0,0,0,0.2)]" : ""} ${onClick ? "cursor-pointer" : "cursor-default"}`}
+        style={{ background: "#fff" }}
+        title={`${RANK_LABEL[card.rank]} de ${SUIT_NAME[card.suit]}`}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`/mus/classic/${card.suit}_${card.rank}.webp`} alt="" draggable={false} className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+      </motion.button>
+    );
+  }
+
+  const solid = silueta;
+  const color = suitColor(card.suit, silueta ? "classic" : musDeckTheme);
   const rank = RANK_SHORT[card.rank];
   const isFigure = card.rank >= 10;
   const indexSize = mini ? 8 : small ? 11 : 14;
@@ -92,24 +118,25 @@ export default function MusCard({
   const pintaH = mini ? 1.1 : 1.6;
   const title = `${RANK_LABEL[card.rank]} de ${SUIT_NAME[card.suit]}`;
 
+  const pipSuit = (sz: number) =>
+    solid ? <SpanishSuitSolid suit={card.suit} size={sz} color={color} /> : <SpanishSuit suit={card.suit} size={sz} theme={musDeckTheme} />;
+
   // Mini cards drop the pip layout — at that size only one clear mark reads.
   const body = mini ? (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <SpanishSuit suit={card.suit} size={18} theme={musDeckTheme} />
+      {pipSuit(18)}
     </div>
   ) : isFigure ? (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <MusFigure rank={card.rank} suit={card.suit} height={small ? 40 : 54} color={color} />
+      {solid
+        ? <MusFigureSolid rank={card.rank} height={small ? 38 : 50} color={color} />
+        : <MusFigure rank={card.rank} suit={card.suit} height={small ? 40 : 54} color={color} />}
     </div>
   ) : (
     <div className="absolute inset-0 pointer-events-none">
       {(PIP_LAYOUT[card.rank] ?? []).map(([x, y], i) => (
         <span key={i} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${x}%`, top: `${y}%` }}>
-          <SpanishSuit
-            suit={card.suit}
-            size={card.rank <= 3 ? (small ? 19 : 25) : small ? 12 : 16}
-            theme={musDeckTheme}
-          />
+          {pipSuit(card.rank <= 3 ? (small ? 19 : 25) : small ? 12 : 16)}
         </span>
       ))}
     </div>

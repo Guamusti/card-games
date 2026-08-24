@@ -13,6 +13,9 @@ import { useDarkMode } from "@/hooks/useDarkMode";
 import type { CardBack, AccentColor, TableFelt, SuitColorScheme, PlayerAvatar, MusDeckTheme } from "@/engine/customize/store";
 import type { CubeRarity, CubeReward } from "@/engine/battlepass";
 
+const DECK_LABEL: Record<MusDeckTheme, string> = {
+  tradicional: "Tradicional", classic: "Clásica", silueta: "Silueta", minimal: "Minimalista", neon: "Neón",
+};
 const CUBE_EMOJI: Record<CubeRarity, string> = { 1: "⬜", 2: "🟦", 3: "🟪", 4: "🟨" };
 const CUBE_LABEL: Record<CubeRarity, string> = { 1: "Common", 2: "Rare", 3: "Epic", 4: "Legendary" };
 const STAR_DISPLAY: Record<CubeRarity, string> = { 1: "★", 2: "★★", 3: "★★★", 4: "★★★★" };
@@ -325,15 +328,20 @@ export default function ShopPage() {
 
             <Section title="Baraja de Mus">
               <div className="grid grid-cols-3 gap-2.5">
-                {(["classic", "minimal", "neon"] as MusDeckTheme[]).map((theme) => (
-                  <button key={theme} onClick={() => customize.setMusDeckTheme(theme)} className={`rounded-xl border p-3 text-left transition ${customize.musDeckTheme === theme ? "border-foreground ring-1 ring-foreground" : "border-border"}`}>
-                    <div className={`h-16 rounded-lg mb-2 border flex items-center justify-center ${theme === "neon" ? "bg-[#080909] border-[#78d8f5]" : theme === "minimal" ? "bg-white border-black/10" : "bg-[#fbfaf6] border-black/15"}`}>
-                      <span className="text-lg" style={{ color: theme === "neon" ? "#78d8f5" : theme === "minimal" ? "#33312d" : "#b8322c" }}>♠</span>
+                {(["tradicional", "classic", "silueta", "minimal", "neon"] as MusDeckTheme[]).map((theme) => (
+                  <button key={theme} onClick={() => customize.setMusDeckTheme(theme)} className={`rounded-xl border p-2 text-left transition ${customize.musDeckTheme === theme ? "border-foreground ring-1 ring-foreground" : "border-border"}`}>
+                    <div className={`h-16 rounded-lg mb-2 border overflow-hidden flex items-center justify-center ${theme === "neon" ? "bg-[#080909] border-[#78d8f5]" : theme === "minimal" ? "bg-white border-black/10" : "bg-[#fbfaf6] border-black/15"}`}>
+                      {theme === "tradicional"
+                        ? <img src="/mus/classic/oros_12.webp" alt="" className="h-full w-auto object-contain" />
+                        : <span className="text-lg" style={{ color: theme === "neon" ? "#78d8f5" : theme === "minimal" ? "#33312d" : theme === "silueta" ? "#255a92" : "#b8322c" }}>♠</span>}
                     </div>
-                    <span className="text-xs font-medium">{theme === "classic" ? "Clásica" : theme === "minimal" ? "Minimalista" : "Neón"}</span>
+                    <span className="text-[11px] font-medium">{DECK_LABEL[theme]}</span>
                   </button>
                 ))}
               </div>
+              <p className="mt-2 text-[9px] text-muted leading-snug">
+                Baraja «Tradicional»: arte de Basquetteur (Wikimedia Commons), licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noreferrer" className="underline">CC BY-SA 3.0</a>.
+              </p>
             </Section>
 
             <Section title="Card Backs">
