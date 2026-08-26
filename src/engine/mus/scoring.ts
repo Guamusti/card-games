@@ -76,6 +76,18 @@ export interface LanceScore {
   points: number;
   detail: string;
   isPunto?: boolean;
+  /** Seat that supplied the decisive hand when cards are compared. */
+  winnerSeat?: number | null;
+  /** Human-readable reason used by the interactive recuento. */
+  reason?: string;
+  /** Exact stones making up this lance. */
+  breakdown?: ScoreBreakdownItem[];
+}
+
+export interface ScoreBreakdownItem {
+  label: string;
+  points: number;
+  seat?: number;
 }
 
 /** Pares tantos held by a team's members (only those with pares). */
@@ -158,6 +170,51 @@ export function scoreLance(
   }
 
   return { lance, winnerTeam: winner.team, points: pts, detail };
+}
+
+/** Explains a completed lance without changing any state. */
+export function explainLance(
+  lance: Lance,
+  outcome: LanceOutcome,
+  participants: SeatHand[],
+  order: number[],
+  isPunto: boolean = false,
+): Pick<LanceScore, "winnerSeat" | "reason" | "breakdown"> {
+  const score = scoreLance(lance, outcome, participants, order, isPunto);
+  const bestForTeam = (team: Team) => resolveLanceWinner(lance, participants.filter((p) => p.team === team), order)?.seat ?? null;
+  const deciding = outcome.kind === "noquiero" || outcome.kind === "ordago-noquiero"
+    ? bestForTeam(outcome.envidoTeam)
+    : resolveLanceWinner(lance, participants, order)?.seat ?? null;
+  const breakdown: ScoreBreakdownItem[] = [];
+
+  if (outcome.kind === "quiero") breakdown.push({ label: `Envite querido`, points: outcome.stake });
+  if (outcome.kind === "noquiero") breakdown.push({ label: `Envite no querido`, points: outcome.payout });
+  if (outcome.kind === "ordago-noquiero") breakdown.push({ label: "Órdago no querido", points: 1 });
+  if (outcome.kind === "paso" && (lance === "grande" || lance === "chica" || isPunto)) breakdown.push({ label: "Lance en paso", points: 1 });
+
+  if (lance === "pares" && score.winnerTeam) {
+    participants.filter((p) => p.team === score.winnerTeam && p.eval.pares.category !== "none").forEach((p) => {
+      const names = { par: "Par", medias: "Medias", duples: "Duples" } as const;
+      breakdown.push({ label: names[p.eval.pares.category as "par" | "medias" | "duples"], points: p.eval.pares.tantos, seat: p.seat });
+    });
+  }
+  if (lance === "juego" && !isPunto && score.winnerTeam) {
+    participants.filter((p) => p.team === score.winnerTeam && p.eval.juego.hasJuego).forEach((p) => {
+      const points = p.eval.juego.sum === 31 ? 3 : 2;
+      breakdown.push({ label: p.eval.juego.sum === 31 ? "Juego de 31" : `Juego de ${p.eval.juego.sum}`, points, seat: p.seat });
+    });
+  }
+
+  let reason = "No se juega este lance.";
+  if (outcome.kind === "noquiero" || outcome.kind === "ordago-noquiero") reason = "El rival no quiso el envite: la apuesta es para quien la lanzó.";
+  else if (outcome.kind === "ordago-quiero") reason = "Órdago querido: este lance decide la vaca.";
+  else if (isPunto) reason = "Nadie tiene juego; gana la mano con más punto.";
+  else if (lance === "grande") reason = "Gana la combinación de cartas más alta; si empatan, decide la mano.";
+  else if (lance === "chica") reason = "Gana la combinación de cartas más baja; si empatan, decide la mano.";
+  else if (lance === "pares") reason = "Duples vence a medias y medias a par; después decide el valor y la mano.";
+  else if (lance === "juego") reason = "El 31 es el mejor juego; después 32 y de 40 a 33.";
+
+  return { winnerSeat: deciding, reason, breakdown };
 }
 
 /** Score the Punto sub-lance (base 1, no pares/juego tantos). */

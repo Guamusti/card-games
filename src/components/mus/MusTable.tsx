@@ -536,17 +536,31 @@ function Recuento({ store, selLance, onSelLance }: { store: MusStore; selLance: 
       <div className="grid w-full grid-cols-1 gap-1.5">
         {rows.map((ls, i) => {
           const active = selLance === ls.lance;
+          const winnerName = ls.winnerSeat === undefined || ls.winnerSeat === null ? null : s.players.find((player) => player.seat === ls.winnerSeat)?.name;
           return (
-            <button
-              key={i}
-              onClick={() => onSelLance(active ? null : ls.lance)}
-              className={`text-left text-[10px] px-2 py-1.5 rounded-lg border transition-colors ${
-                active ? "border-yellow-400 ring-1 ring-yellow-400 text-foreground" : ls.winnerTeam === "A" ? "border-correct text-correct" : "border-border text-muted"
-              }`}
-            >
-              <b>{ls.isPunto ? "Punto" : LANCE_LABEL[ls.lance]}</b> · {ls.winnerTeam === "A" ? "Nosotros" : ls.winnerTeam === "B" ? "Ellos" : "—"} {ls.points > 0 ? `+${ls.points}` : ""}
-              {ls.detail ? <span className="opacity-60"> · {ls.detail}</span> : null}
-            </button>
+            <div key={i} className={`rounded-lg border transition-colors ${active ? "border-yellow-400 ring-1 ring-yellow-400" : ls.winnerTeam === "A" ? "border-correct" : "border-border"}`}>
+              <button
+                onClick={() => onSelLance(active ? null : ls.lance)}
+                className={`w-full text-left text-[10px] px-2 py-1.5 ${active ? "text-foreground" : ls.winnerTeam === "A" ? "text-correct" : "text-muted"}`}
+              >
+                <b>{ls.isPunto ? "Punto" : LANCE_LABEL[ls.lance]}</b> · {ls.winnerTeam === "A" ? "Nosotros" : ls.winnerTeam === "B" ? "Ellos" : "—"} {ls.points > 0 ? `+${ls.points}` : ""}
+                {ls.detail ? <span className="opacity-60"> · {ls.detail}</span> : null}
+              </button>
+              {active && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="border-t border-current/15 px-2 py-2 text-[10px] text-muted">
+                  <p className="leading-relaxed">{ls.reason || "Resultado del lance."}{winnerName ? <><br /><b className="text-foreground">Mano decisiva: {winnerName}.</b></> : null}</p>
+                  {ls.breakdown && ls.breakdown.length > 0 && (
+                    <div className="mt-2 flex flex-col gap-1">
+                      {ls.breakdown.map((item, index) => {
+                        const player = item.seat === undefined ? null : s.players.find((entry) => entry.seat === item.seat)?.name;
+                        return <div key={`${item.label}-${index}`} className="flex items-center justify-between"><span>{item.label}{player ? ` · ${player}` : ""}</span><b className="text-foreground">+{item.points}</b></div>;
+                      })}
+                      <div className="mt-1 flex items-center justify-between border-t border-border pt-1 text-foreground"><span>Total del lance</span><b>+{ls.points}</b></div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </div>
           );
         })}
       </div>

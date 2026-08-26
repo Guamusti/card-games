@@ -8,7 +8,7 @@ import { DEFAULT_MUS_CONFIG, LANCES, teamOfSeat, LANCE_LABEL, BOT_SPEED_FACTOR }
 import { createShuffledDeck, shuffle } from "./deck";
 import { evaluateMusHand, isJuegoLance } from "./rules";
 import {
-  scoreLance, resolveLanceWinner, declinedStakePoints, type LanceOutcome, type SeatHand, type LanceScore,
+  scoreLance, explainLance, resolveLanceWinner, declinedStakePoints, type LanceOutcome, type SeatHand, type LanceScore,
 } from "./scoring";
 import { decideMus, decideBet } from "./ai";
 import { availableSenas, SENA_PROB, type SenaId } from "./senas";
@@ -758,7 +758,7 @@ export const useMusStore = create<MusStore>((set, get) => {
         if (!rt || !rt.outcome) continue;
         const parts = rt.order.map((seat) => allEvals[seat]);
         const ls = scoreLance(lance, rt.outcome, parts, order, rt.isPunto);
-        scores.push(ls);
+        scores.push({ ...ls, ...explainLance(lance, rt.outcome, parts, order, rt.isPunto) });
         const pendingPoints = Math.max(0, ls.points - (rt.earlyPoints ?? 0));
         if (ls.winnerTeam === "A") a += pendingPoints;
         else if (ls.winnerTeam === "B") b += pendingPoints;
