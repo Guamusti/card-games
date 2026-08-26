@@ -37,7 +37,7 @@ export async function activateSocial(username: string) {
   await client.connection.once("connected");
   presence = client.channels.get("mus:friends:presence");
   presence.presence.subscribe(["enter", "leave", "present", "update"], () => { void refresh(); });
-  await presence.presence.enter({ username: clean, musStats: { handsPlayed: 0, handsWon: 0, gamesPlayed: 0, gamesWon: 0, vacasWon: 0, stonesWon: 0, ordagosWon: 0, elo: 1000, rankedGames: 0, rankedWins: 0, lances: { grande: { played: 0, won: 0, stones: 0 }, chica: { played: 0, won: 0, stones: 0 }, pares: { played: 0, won: 0, stones: 0 }, juego: { played: 0, won: 0, stones: 0 } } } });
+  await presence.presence.enter({ username: clean, musStats: { handsPlayed: 0, handsWon: 0, gamesPlayed: 0, gamesWon: 0, vacasWon: 0, stonesWon: 0, ordagosWon: 0, elo: 1000, rankedGames: 0, rankedWins: 0, botElo: 1000, botEloGames: 0, botEloWins: 0, lances: { grande: { played: 0, won: 0, stones: 0 }, chica: { played: 0, won: 0, stones: 0 }, pares: { played: 0, won: 0, stones: 0 }, juego: { played: 0, won: 0, stones: 0 } } } });
   inbox = client.channels.get(`mus:friends:inbox:${clean}`);
   inbox.subscribe("invite", (message) => notify(message.data as RoomInvite));
   await refresh();

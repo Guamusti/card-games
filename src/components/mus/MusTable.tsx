@@ -96,6 +96,7 @@ export default function MusTable() {
         recordedResults.current.add(gameKey);
         const rankedFriendsRoom = s.mode === "online" && s.humanSeats.length === 4 && s.config.matchType === "ranked";
         useMusStatsStore.getState().recordGame(s.winnerTeam === ownTeam, rankedFriendsRoom);
+        if (s.players.some((player) => player.isBot)) useMusStatsStore.getState().recordBotGame(s.winnerTeam === ownTeam, s.config.difficulty);
       }
     }
   }, [s.config.matchType, s.dealerSeat, s.handScores, s.humanSeats.length, s.localSeat, s.mode, s.musRound, s.ordagoVaca, s.phase, s.winnerTeam]);

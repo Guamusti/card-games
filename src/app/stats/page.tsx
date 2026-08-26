@@ -97,6 +97,7 @@ export default function StatsPage() {
               <StatCard label="Victoria" value={musWinRate === null ? "—" : `${musWinRate}%`} color={musWinRate !== null && musWinRate >= 50 ? "text-correct" : undefined} />
               <StatCard label="Ranked" value={`${mus.rankedWins}/${mus.rankedGames}`} />
             </div>
+            <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5"><div className="flex flex-col"><span className="text-xs text-muted">ELO contra bots</span><span className="text-[10px] text-muted">{mus.botEloWins}/{mus.botEloGames} ganadas · fácil 800 · imposible 1400</span></div><span className="text-sm font-semibold tabular-nums text-correct">{mus.botElo}</span></div>
             <div className="grid grid-cols-3 gap-2">
               <StatCard label="Manos" value={mus.handsPlayed.toString()} small />
               <StatCard label="Manos ganadas" value={musHandWinRate === null ? "—" : `${musHandWinRate}%`} small />

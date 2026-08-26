@@ -4,6 +4,7 @@ import {
   evaluateMusHand, compareForLance,
 } from "../src/engine/mus/rules";
 import { scoreLance, declinedStakePoints, type SeatHand } from "../src/engine/mus/scoring";
+import { botEloDelta } from "../src/engine/mus/stats";
 import type { SpanishCard, SpanishRank, SpanishSuit, Team } from "../src/engine/mus/types";
 
 const SUITS: SpanishSuit[] = ["oros", "copas", "espadas", "bastos"];
@@ -81,8 +82,13 @@ ok("juego cmp: 31 > 32", compareForLance(evaluateMusHand(hand([12, 12, 12, 1]), 
   const parts = [sh(0, "A", [12, 12, 12, 12]), sh(1, "B", [1, 1, 1, 1])];
   eq("ordago-quiero → 0 (resuelto aparte)", scoreLance("grande", { kind: "ordago-quiero", envidoTeam: "A" }, parts, order).points, 0);
   eq("ordago-noquiero → +1", scoreLance("grande", { kind: "ordago-noquiero", envidoTeam: "A" }, parts, order).points, 1);
-  eq("ordago noquiero pago inmediato = 1", declinedStakePoints({ kind: "ordago-noquiero", envidoTeam: "A" }), 1);
+eq("ordago noquiero pago inmediato = 1", declinedStakePoints({ kind: "ordago-noquiero", envidoTeam: "A" }), 1);
 }
+// ── Bot ELO ──
+ok("ELO bot: ganar a imposible vale más que ganar a fácil", botEloDelta(1000, "imposible", true) > botEloDelta(1000, "easy", true));
+ok("ELO bot: perder contra fácil penaliza más", botEloDelta(1000, "easy", false) < botEloDelta(1000, "imposible", false));
+eq("ELO bot: empate de nivel, victoria +12", botEloDelta(1000, "normal", true), 12);
+eq("ELO bot: empate de nivel, derrota -12", botEloDelta(1000, "normal", false), -12);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
