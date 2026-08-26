@@ -441,10 +441,10 @@ function SenaPicker({ open, onToggle, senas, onPick }: {
   open: boolean; onToggle: () => void; senas: SenaId[]; onPick: (id: SenaId) => void;
 }) {
   return (
-    <div className="absolute top-3 left-3 z-30 flex flex-col items-start gap-2">
+    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2">
       <button
         onClick={onToggle}
-        className={`px-3 h-7 rounded-full border text-xs font-medium flex items-center gap-1.5 transition-colors ${open ? "border-accent text-accent" : "border-border text-muted hover:text-foreground hover:border-foreground"}`}
+        className={`px-3 h-7 rounded-full border text-xs font-medium flex items-center gap-1.5 transition-colors ${open ? "border-accent text-accent bg-background" : "border-border text-muted bg-background/80 hover:text-foreground hover:border-foreground"}`}
       >
         <SenaIcon id="treintaiuna" size={15} /> Señas
       </button>
