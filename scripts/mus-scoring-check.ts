@@ -3,7 +3,7 @@ import {
   musValue, juegoStrength, evaluatePares, evaluateJuego, comparePares,
   evaluateMusHand, compareForLance,
 } from "../src/engine/mus/rules";
-import { scoreLance, type SeatHand } from "../src/engine/mus/scoring";
+import { scoreLance, declinedStakePoints, type SeatHand } from "../src/engine/mus/scoring";
 import type { SpanishCard, SpanishRank, SpanishSuit, Team } from "../src/engine/mus/types";
 
 const SUITS: SpanishSuit[] = ["oros", "copas", "espadas", "bastos"];
@@ -46,6 +46,7 @@ ok("juego cmp: 31 > 32", compareForLance(evaluateMusHand(hand([12, 12, 12, 1]), 
   eq("grande quiero 3 → +3", scoreLance("grande", { kind: "quiero", stake: 3, envidoTeam: "A" }, parts, order).points, 3);
   const nq = scoreLance("grande", { kind: "noquiero", payout: 2, envidoTeam: "A" }, parts, order);
   eq("grande noquiero → A +2", [nq.winnerTeam, nq.points], ["A", 2]);
+  eq("noquiero grande pago inmediato = envite", declinedStakePoints({ kind: "noquiero", payout: 2, envidoTeam: "A" }), 2);
 }
 // ── Chica ──
 {
@@ -67,6 +68,7 @@ ok("juego cmp: 31 > 32", compareForLance(evaluateMusHand(hand([12, 12, 12, 1]), 
   eq("juego paso juego+31 → 5", scoreLance("juego", { kind: "paso" }, [sh(0, "A", [12, 12, 12, 4]), sh(2, "A", [12, 12, 12, 1])], order).points, 5);
   const nq = scoreLance("juego", { kind: "noquiero", payout: 2, envidoTeam: "A" }, [sh(0, "A", [12, 12, 12, 1]), sh(2, "A", [12, 12, 12, 4])], order);
   eq("juego noquiero → 2 + (3+2)=7", [nq.winnerTeam, nq.points], ["A", 7]);
+  eq("noquiero juego adelanta solo envite", declinedStakePoints({ kind: "noquiero", payout: 2, envidoTeam: "A" }), 2);
 }
 // ── Punto ──
 {
@@ -79,6 +81,7 @@ ok("juego cmp: 31 > 32", compareForLance(evaluateMusHand(hand([12, 12, 12, 1]), 
   const parts = [sh(0, "A", [12, 12, 12, 12]), sh(1, "B", [1, 1, 1, 1])];
   eq("ordago-quiero → 0 (resuelto aparte)", scoreLance("grande", { kind: "ordago-quiero", envidoTeam: "A" }, parts, order).points, 0);
   eq("ordago-noquiero → +1", scoreLance("grande", { kind: "ordago-noquiero", envidoTeam: "A" }, parts, order).points, 1);
+  eq("ordago noquiero pago inmediato = 1", declinedStakePoints({ kind: "ordago-noquiero", envidoTeam: "A" }), 1);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

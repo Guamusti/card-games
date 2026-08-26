@@ -25,6 +25,11 @@ export type LanceOutcome =
   | { kind: "ordago-quiero"; envidoTeam: Team }
   | { kind: "ordago-noquiero"; envidoTeam: Team };
 
+/** Stones paid immediately when an envite is declined. Extra tantos wait for recuento. */
+export function declinedStakePoints(outcome: LanceOutcome): number {
+  return outcome.kind === "ordago-noquiero" ? 1 : outcome.kind === "noquiero" ? outcome.payout : 0;
+}
+
 export interface SeatHand {
   seat: number;
   team: Team;

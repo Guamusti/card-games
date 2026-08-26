@@ -8,7 +8,7 @@ import { DEFAULT_MUS_CONFIG, LANCES, teamOfSeat, LANCE_LABEL, BOT_SPEED_FACTOR }
 import { createShuffledDeck, shuffle } from "./deck";
 import { evaluateMusHand, isJuegoLance } from "./rules";
 import {
-  scoreLance, resolveLanceWinner, type LanceOutcome, type SeatHand, type LanceScore,
+  scoreLance, resolveLanceWinner, declinedStakePoints, type LanceOutcome, type SeatHand, type LanceScore,
 } from "./scoring";
 import { decideMus, decideBet } from "./ai";
 import { availableSenas, SENA_PROB, type SenaId } from "./senas";
@@ -112,6 +112,8 @@ interface MusActions {
   applyRemoteState: (state: Partial<MusState>) => void;
   /** Serialize just the data fields for network sync. */
   snapshot: () => Partial<MusState>;
+  /** Snapshot for one seat with opponents' cards & señas hidden (anti-cheat). */
+  redactedSnapshot: (forSeat: number) => Partial<MusState>;
 }
 
 /** Client → host network intents (online mode). */
@@ -707,7 +709,7 @@ export const useMusStore = create<MusStore>((set, get) => {
     const s = get();
     const outcome = rt.outcome;
     if (!outcome || (outcome.kind !== "noquiero" && outcome.kind !== "ordago-noquiero") || (rt.earlyPoints ?? 0) > 0) return;
-    const points = outcome.kind === "ordago-noquiero" ? 1 : outcome.payout;
+    const points = declinedStakePoints(outcome);
     const team = outcome.envidoTeam;
     const score = { ...s.score };
     score[team] += points;
@@ -954,6 +956,20 @@ export const useMusStore = create<MusStore>((set, get) => {
         lastAction: s.lastAction, message: s.message, winnerTeam: s.winnerTeam,
         ordagoVaca: s.ordagoVaca, senaBySeat: s.senaBySeat,
       };
+    },
+
+    redactedSnapshot: (forSeat) => {
+      const s = get();
+      const full = get().snapshot();
+      const myTeam = teamOfSeat(forSeat);
+      // Hide opponents' cards until the reveal at recuento.
+      const players = s.players.map((p) => {
+        if (p.seat === forSeat || s.reveal) return p;
+        return { ...p, cards: p.cards.map(() => ({ rank: 1 as SpanishCard["rank"], suit: "oros" as SpanishCard["suit"] })) };
+      });
+      // Señas are secret to the opposing team.
+      const senaBySeat = s.senaBySeat.map((sn, seat) => (teamOfSeat(seat) === myTeam ? sn : null));
+      return { ...full, players, senaBySeat };
     },
   };
 });
