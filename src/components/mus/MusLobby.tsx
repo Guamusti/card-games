@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { getMusRoom, resetMusRoom, type RoomMode, type LobbyState } from "@/engine/mus/online";
 import { useCustomizeStore } from "@/engine/customize/store";
-import type { VacaPoints, BestOf, MusDifficulty } from "@/engine/mus/types";
+import type { VacaPoints, BestOf, MusDifficulty, MusMatchType } from "@/engine/mus/types";
 import { DEFAULT_MUS_CONFIG } from "@/engine/mus/types";
 import { activateSocial, sendRoomInvite, subscribeSocial, type RoomInvite } from "@/engine/mus/social";
 
@@ -24,6 +24,7 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
   const [vaca, setVaca] = useState<VacaPoints>(musDefaultVaca);
   const [bestOf, setBestOf] = useState<BestOf>(musDefaultBestOf);
   const [difficulty, setDifficulty] = useState<MusDifficulty>(aiDifficulty);
+  const [matchType, setMatchType] = useState<MusMatchType>("casual");
   const displayName = nickname || username || "Jugador";
 
   const startedRef = useRef(false);
@@ -41,7 +42,7 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
   const doHost = async () => {
     setBusy(true); setError(null);
     try {
-      const cfg = { ...DEFAULT_MUS_CONFIG, vacaPoints: vaca, bestOf, difficulty, botSpeed: musBotSpeed };
+      const cfg = { ...DEFAULT_MUS_CONFIG, vacaPoints: vaca, bestOf, difficulty, botSpeed: musBotSpeed, matchType };
       await getMusRoom().host(displayName, mode, cfg);
       setView("lobby");
     } catch { setError("No se pudo crear la sala. ¿Está configurado Ably?"); }
@@ -93,6 +94,8 @@ export default function MusLobby({ mode, onStarted, onExit }: { mode: RoomMode; 
           <p className="text-xs text-muted">Tú fijas las reglas de la sala.</p>
           <Row label="Vaca a">{([30, 40] as VacaPoints[]).map((v) => <Chip key={v} active={vaca === v} onClick={() => setVaca(v)}>{v}</Chip>)}</Row>
           <Row label="Partida">{([3, 5] as BestOf[]).map((b) => <Chip key={b} active={bestOf === b} onClick={() => setBestOf(b)}>BO{b}</Chip>)}</Row>
+          {mode === "friends4" && <Row label="Clasificación"><Chip active={matchType === "casual"} onClick={() => setMatchType("casual")}>Casual</Chip><Chip active={matchType === "ranked"} onClick={() => setMatchType("ranked")}>Con ELO</Chip></Row>}
+          {mode === "friends4" && matchType === "ranked" && <p className="-mt-2 text-[11px] text-muted">Solo cuenta entre amigos de esta sala: ±20 ELO al terminar la partida.</p>}
           <Row label="Bots">{(["easy", "normal", "hard", "imposible"] as MusDifficulty[]).map((d) => <Chip key={d} active={difficulty === d} onClick={() => setDifficulty(d)}>{d === "easy" ? "Fácil" : d === "normal" ? "Normal" : d === "hard" ? "Difícil" : "Imposible"}</Chip>)}</Row>
           {difficulty === "imposible" && <p className="-mt-2 text-[11px] text-accent">Los bots juegan por estadística (Monte Carlo) y pot-odds. Muy difícil de ganar.</p>}
           <button onClick={doHost} disabled={busy} className="btn-primary disabled:opacity-50">{busy ? "Creando…" : "Crear sala"}</button>

@@ -109,6 +109,8 @@ export type VacaPoints = 30 | 40;
 export type BestOf = 3 | 5;
 export type MusDifficulty = "easy" | "normal" | "hard" | "imposible";
 export type BotSpeed = "fast" | "normal" | "slow";
+/** Private rooms can be relaxed, or count towards the local friends ranking. */
+export type MusMatchType = "casual" | "ranked";
 
 /** Multiplier applied to scheduled pauses (bot thinking, deal beats). */
 export const BOT_SPEED_FACTOR: Record<BotSpeed, number> = {
@@ -130,6 +132,8 @@ export interface MusConfig {
   botSpeed: BotSpeed;
   /** Whether hand signals (señas) are in play. */
   senasEnabled: boolean;
+  /** Casual rooms never change ranking. Ranked rooms are restricted to four friends. */
+  matchType: MusMatchType;
 }
 
 export const DEFAULT_MUS_CONFIG: MusConfig = {
@@ -139,6 +143,7 @@ export const DEFAULT_MUS_CONFIG: MusConfig = {
   difficulty: "normal",
   botSpeed: "normal",
   senasEnabled: true,
+  matchType: "casual",
 };
 
 // ─── Modes ───────────────────────────────────────────────────

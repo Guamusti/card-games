@@ -14,10 +14,19 @@ import BottomNav from "@/components/ui/BottomNav";
 import { useCustomizeStore } from "@/engine/customize/store";
 import { activateSocial, subscribeSocial } from "@/engine/mus/social";
 import { useMusStatsStore, type MusStats } from "@/engine/mus/stats";
+import { LANCES, LANCE_LABEL, type Lance } from "@/engine/mus/types";
 
 function pct(num: number, den: number): string {
   if (den === 0) return "—";
   return Math.round((num / den) * 100) + "%";
+}
+
+function rating(stats: MusStats) { return stats.elo ?? 1000; }
+function ratingName(elo: number) {
+  if (elo >= 1200) return "Maestro";
+  if (elo >= 1100) return "Experto";
+  if (elo >= 1020) return "Jugador";
+  return "Aprendiz";
 }
 
 export default function StatsPage() {
@@ -61,11 +70,7 @@ export default function StatsPage() {
   const musRanking = [
     { username: username || "Tú", stats: mus, self: true },
     ...friends.filter((friend) => onlineFriends.has(friend)).map((friend) => ({ username: friend, stats: friendMusStats.get(friend), self: false })),
-  ].filter((entry): entry is { username: string; stats: MusStats; self: boolean } => !!entry.stats).sort((a, b) => {
-    const aRate = a.stats.gamesPlayed ? a.stats.gamesWon / a.stats.gamesPlayed : 0;
-    const bRate = b.stats.gamesPlayed ? b.stats.gamesWon / b.stats.gamesPlayed : 0;
-    return bRate - aRate || b.stats.gamesWon - a.stats.gamesWon;
-  });
+  ].filter((entry): entry is { username: string; stats: MusStats; self: boolean } => !!entry.stats).sort((a, b) => rating(b.stats) - rating(a.stats) || (b.stats.rankedWins ?? 0) - (a.stats.rankedWins ?? 0));
 
   return (
     <div className="flex flex-col min-h-[100dvh]">
@@ -88,9 +93,9 @@ export default function StatsPage() {
           </Section>
           <Section title="Mus" delay={0.07}>
             <div className="grid grid-cols-3 gap-2">
-              <StatCard label="Partidas" value={mus.gamesPlayed.toString()} />
+              <StatCard label="ELO privado" value={mus.elo.toString()} color="text-correct" />
               <StatCard label="Victoria" value={musWinRate === null ? "—" : `${musWinRate}%`} color={musWinRate !== null && musWinRate >= 50 ? "text-correct" : undefined} />
-              <StatCard label="Vacas" value={mus.vacasWon.toString()} />
+              <StatCard label="Ranked" value={`${mus.rankedWins}/${mus.rankedGames}`} />
             </div>
             <div className="grid grid-cols-3 gap-2">
               <StatCard label="Manos" value={mus.handsPlayed.toString()} small />
@@ -98,11 +103,15 @@ export default function StatsPage() {
               <StatCard label="Piedras" value={mus.stonesWon.toString()} small />
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5"><span className="text-xs text-muted">Órdagos ganados</span><span className="text-sm font-semibold tabular-nums">{mus.ordagosWon}</span></div>
+            <div className="flex flex-col gap-2 rounded-xl border border-border p-3">
+              <span className="text-[10px] uppercase tracking-widest text-muted">Rendimiento por lance</span>
+              {LANCES.map((lance: Lance) => { const stat = mus.lances?.[lance] ?? { played: 0, won: 0, stones: 0 }; return <div key={lance} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 text-xs"><span>{LANCE_LABEL[lance]}</span><span className="text-muted">{stat.won}/{stat.played}</span><span className="tabular-nums">+{stat.stones} piedras</span></div>; })}
+            </div>
           </Section>
           <Section title="Ranking de amigos · Mus" delay={0.09}>
             <div className="flex flex-col overflow-hidden rounded-xl border border-border">
-              {musRanking.map((entry, index) => { const rate = entry.stats.gamesPlayed ? Math.round((entry.stats.gamesWon / entry.stats.gamesPlayed) * 100) : 0; return <div key={entry.username} className="flex items-center gap-3 border-b border-border px-3 py-2.5 last:border-0"><span className="w-4 text-xs text-muted">{index + 1}</span><span className={`h-2 w-2 rounded-full ${entry.self || onlineFriends.has(entry.username) ? "bg-correct" : "bg-muted"}`} /><span className="flex-1 text-sm">{entry.self ? "Tú" : `@${entry.username}`}</span><span className="text-xs text-muted">{entry.stats.gamesWon}/{entry.stats.gamesPlayed} · {rate}%</span></div>; })}
-              {musRanking.length === 1 && <span className="px-3 py-3 text-xs text-muted">Cuando un amigo esté conectado aparecerá aquí con sus estadísticas de Mus.</span>}
+              {musRanking.map((entry, index) => { const elo = rating(entry.stats); return <div key={entry.username} className="flex items-center gap-3 border-b border-border px-3 py-2.5 last:border-0"><span className="w-4 text-xs text-muted">{index + 1}</span><span className={`h-2 w-2 rounded-full ${entry.self || onlineFriends.has(entry.username) ? "bg-correct" : "bg-muted"}`} /><span className="flex-1 text-sm">{entry.self ? "Tú" : `@${entry.username}`} <span className="text-[10px] text-muted">{ratingName(elo)}</span></span><span className="text-xs font-medium tabular-nums">{elo} ELO</span></div>; })}
+              {musRanking.length === 1 && <span className="px-3 py-3 text-xs text-muted">Solo aparecen tus amigos que estén conectados. Cread una sala de 4 y elegid «Con ELO» para competir.</span>}
             </div>
           </Section>
           {/* ─── Portfolio Hero (Robinhood style) ─── */}

@@ -70,16 +70,35 @@ export default function MusTable() {
       return;
     }
     if (!(["handEnd", "vacaEnd", "gameEnd"] as string[]).includes(s.phase)) return;
-    const resultKey = `${s.dealerSeat}-${s.musRound}-${s.phase}`;
-    if (recordedResults.current.has(resultKey)) return;
-    recordedResults.current.add(resultKey);
     const ownTeam = teamOfSeat(s.localSeat);
     const ownStones = s.handScores.filter((score) => score.winnerTeam === ownTeam).reduce((sum, score) => sum + score.points, 0);
     const otherStones = s.handScores.filter((score) => score.winnerTeam && score.winnerTeam !== ownTeam).reduce((sum, score) => sum + score.points, 0);
-    useMusStatsStore.getState().recordHand(ownStones > otherStones || s.ordagoVaca === ownTeam, ownStones, s.ordagoVaca === ownTeam);
-    if (s.phase === "vacaEnd" || s.phase === "gameEnd") useMusStatsStore.getState().recordVaca(s.ordagoVaca === ownTeam);
-    if (s.phase === "gameEnd") useMusStatsStore.getState().recordGame(s.winnerTeam === ownTeam);
-  }, [s.dealerSeat, s.handScores, s.localSeat, s.musRound, s.ordagoVaca, s.phase, s.winnerTeam]);
+    const handKey = `hand-${s.dealerSeat}-${s.musRound}`;
+    if (!recordedResults.current.has(handKey)) {
+      recordedResults.current.add(handKey);
+      useMusStatsStore.getState().recordHand(
+        ownStones > otherStones || s.ordagoVaca === ownTeam,
+        ownStones,
+        s.ordagoVaca === ownTeam,
+        s.handScores.filter((score) => !!score.winnerTeam).map((score) => ({ lance: score.lance, won: score.winnerTeam === ownTeam, stones: score.winnerTeam === ownTeam ? score.points : 0 })),
+      );
+    }
+    if (s.phase === "vacaEnd" || s.phase === "gameEnd") {
+      const vacaKey = `vaca-${s.dealerSeat}-${s.musRound}`;
+      if (!recordedResults.current.has(vacaKey)) {
+        recordedResults.current.add(vacaKey);
+        useMusStatsStore.getState().recordVaca(s.ordagoVaca === ownTeam);
+      }
+    }
+    if (s.phase === "gameEnd") {
+      const gameKey = `game-${s.dealerSeat}-${s.musRound}`;
+      if (!recordedResults.current.has(gameKey)) {
+        recordedResults.current.add(gameKey);
+        const rankedFriendsRoom = s.mode === "online" && s.humanSeats.length === 4 && s.config.matchType === "ranked";
+        useMusStatsStore.getState().recordGame(s.winnerTeam === ownTeam, rankedFriendsRoom);
+      }
+    }
+  }, [s.config.matchType, s.dealerSeat, s.handScores, s.humanSeats.length, s.localSeat, s.mode, s.musRound, s.ordagoVaca, s.phase, s.winnerTeam]);
 
   // Which seats are on the clock right now (a whole team can respond).
   let activeSeats: number[] = [];

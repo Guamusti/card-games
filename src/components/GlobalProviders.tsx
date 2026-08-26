@@ -17,10 +17,10 @@ export default function GlobalProviders() {
   useDarkMode();
   const username = useCustomizeStore((s) => s.username);
   const musState = useMusStatsStore();
-  const musStats = { handsPlayed: musState.handsPlayed, handsWon: musState.handsWon, gamesPlayed: musState.gamesPlayed, gamesWon: musState.gamesWon, vacasWon: musState.vacasWon, stonesWon: musState.stonesWon, ordagosWon: musState.ordagosWon };
+  const musStats = { handsPlayed: musState.handsPlayed, handsWon: musState.handsWon, gamesPlayed: musState.gamesPlayed, gamesWon: musState.gamesWon, vacasWon: musState.vacasWon, stonesWon: musState.stonesWon, ordagosWon: musState.ordagosWon, elo: musState.elo, rankedGames: musState.rankedGames, rankedWins: musState.rankedWins, lances: musState.lances };
   const [invite, setInvite] = useState<RoomInvite | null>(null);
   useEffect(() => { if (username) void activateSocial(username).then(() => publishMusStats(musStats)); return subscribeSocial((_, incoming) => { if (incoming) setInvite(incoming); }); }, [username]);
-  useEffect(() => { if (username) publishMusStats(musStats); }, [musState.handsPlayed, musState.handsWon, musState.gamesPlayed, musState.gamesWon, musState.vacasWon, musState.stonesWon, musState.ordagosWon, username]);
+  useEffect(() => { if (username) publishMusStats(musStats); }, [musState.handsPlayed, musState.handsWon, musState.gamesPlayed, musState.gamesWon, musState.vacasWon, musState.stonesWon, musState.ordagosWon, musState.elo, musState.rankedGames, musState.rankedWins, musState.lances, username]);
 
   return (
     <>
