@@ -145,6 +145,8 @@ function MusSettings({ vaca, bestOf, setVaca, setBestOf }: {
     musBotSpeed, setMusBotSpeed,
     musDefaultVaca, setMusDefaultVaca,
     musDefaultBestOf, setMusDefaultBestOf,
+    musSenas, setMusSenas,
+    musTrainer, setMusTrainer,
   } = useCustomizeStore();
 
   return (
@@ -180,12 +182,28 @@ function MusSettings({ vaca, bestOf, setVaca, setBestOf }: {
         ))}
       </OptionRow>
       <OptionRow label="Baraja" hint="Estilo de las cartas">
-        <Chip active={musDeckTheme === "classic"} onClick={() => setMusDeckTheme("classic")}>Clásica</Chip>
+        <Chip active={musDeckTheme === "tradicional"} onClick={() => setMusDeckTheme("tradicional")}>Tradic.</Chip>
         <Chip active={musDeckTheme === "neon"} onClick={() => setMusDeckTheme("neon")}>Neón</Chip>
+        <Chip active={musDeckTheme === "classic"} onClick={() => setMusDeckTheme("classic")}>Clásica</Chip>
       </OptionRow>
 
-      <span className="text-[11px] text-muted text-center">Sin señas · variante 8 reyes / 8 ases</span>
+      <Toggle label="Señas" hint="Haz señas a tu compañero; los bots también" on={musSenas} onChange={setMusSenas} />
+      <Toggle label="Entrenador" hint="Muestra tu probabilidad y la jugada correcta" on={musTrainer} onChange={setMusTrainer} />
+      {musTrainer && <p className="-mt-3 text-[11px] text-accent">Solo en modo Solo. Verás el % de ganar cada lance y la jugada recomendada.</p>}
+
+      <span className="text-[11px] text-muted text-center">Variante 8 reyes / 8 ases</span>
     </motion.div>
+  );
+}
+
+function Toggle({ label, hint, on, onChange }: { label: string; hint: string; on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button onClick={() => onChange(!on)} className="flex items-center justify-between text-left">
+      <div className="flex flex-col"><span className="text-sm">{label}</span><span className="text-[10px] text-muted">{hint}</span></div>
+      <span className={`relative w-11 h-6 rounded-full transition-colors ${on ? "bg-foreground" : "bg-border"}`}>
+        <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-background transition-transform ${on ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+      </span>
+    </button>
   );
 }
 

@@ -216,6 +216,7 @@ class MusRoom {
       case "bet": store.submitBet(seat, action.a); break;
       case "discard": store.submitDiscard(seat, action.discards); break;
       case "declare": store.submitDeclare(seat); break;
+      case "sena": store.submitSena(seat, action.id); break;
       case "next": store.submitNextHand(seat); break;
     }
   }

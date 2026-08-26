@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { useMusStore, type MusStore } from "@/engine/mus/store";
 import type { MusPlayer, Lance } from "@/engine/mus/types";
 import { teamOfSeat, LANCE_LABEL } from "@/engine/mus/types";
 import { evaluateMusHand } from "@/engine/mus/rules";
 import { resolveLanceWinner } from "@/engine/mus/scoring";
+import { lanceWinProbability } from "@/engine/mus/probability";
+import { decideBet } from "@/engine/mus/ai";
 import { buzz } from "@/engine/mus/haptics";
+import { availableSenas, SENAS, type SenaId } from "@/engine/mus/senas";
+import SenaIcon from "./SenaIcon";
 import MusCard from "./MusCard";
 import MusAvatar from "./MusAvatar";
 import ScoreBoard from "./ScoreBoard";
@@ -29,11 +33,13 @@ export default function MusTable() {
   const s = useMusStore();
   const recordedResults = useRef(new Set<string>());
   const tableFelt = useCustomizeStore((state) => state.tableFelt);
+  const musTrainer = useCustomizeStore((state) => state.musTrainer);
   const [helpOpen, setHelpOpen] = useState(false);
   // Recuento inspection: click a lance to see which hand won it.
   const [selLance, setSelLance] = useState<Lance | null>(null);
   // Manual left-to-right order of the player's own hand (drag to reorder).
   const [handOrder, setHandOrder] = useState<number[]>([0, 1, 2, 3]);
+  const [senaOpen, setSenaOpen] = useState(false);
 
   useEffect(() => {
     if (s.phase === "idle" && s.mode === "solo") s.startSolo();
@@ -103,6 +109,28 @@ export default function MusTable() {
     dimmed: !!selLance && winnerSeat !== null && seatNum !== winnerSeat,
   });
 
+  // Trainer overlay (solo only): win % for the current lance + best play.
+  const trainer = useMemo(() => {
+    if (!musTrainer || s.mode !== "solo" || !isLance || !s.currentLance) return null;
+    const lance = s.currentLance;
+    const ev = evaluateMusHand(you.cards, s.config.reyes8);
+    const participates = lance === "pares" ? ev.pares.category !== "none"
+      : lance === "juego" ? (rt?.isPunto ? true : ev.juego.hasJuego)
+      : true;
+    const pct = Math.round(lanceWinProbability(you.cards, s.config.reyes8, lance, 2, 400) * 100);
+    let rec: string | null = null;
+    if (humanTurnInLance) {
+      const d = decideBet({
+        eval: ev, lance, cards: you.cards, reyes8: s.config.reyes8,
+        liveEnvite: liveEnviteForUs, currentStake, isOrdago,
+        difficulty: "imposible", pointsToWin: Math.max(1, s.config.vacaPoints - s.score[myTeam]),
+      });
+      rec = betLabel(d);
+    }
+    return { lance, pct, participates, rec };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [musTrainer, s.mode, isLance, s.currentLance, s.musRound, humanTurnInLance, liveEnviteForUs, currentStake, isOrdago]);
+
   // Haptic nudge when it becomes the human's turn.
   useEffect(() => { if (myTurn) buzz("turn"); }, [myTurn, s.currentLance, s.phase, s.musActiveIdx]);
 
@@ -158,6 +186,13 @@ export default function MusTable() {
         className="absolute top-3 right-3 z-20 w-7 h-7 rounded-full border border-border text-muted hover:text-foreground hover:border-foreground flex items-center justify-center text-sm font-semibold"
       >?</button>
       <MusHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+      {s.config.senasEnabled && s.humanSeats.includes(me) && ["mus", "grande", "chica", "pares", "juego"].includes(s.phase) && (
+        <SenaPicker
+          open={senaOpen} onToggle={() => setSenaOpen((v) => !v)}
+          senas={availableSenas(you.cards, s.config.reyes8)}
+          onPick={(id) => { buzz("tap"); s.makeSena(id); setSenaOpen(false); }}
+        />
+      )}
       <div className="w-full max-w-md mx-auto flex flex-col gap-3 flex-1">
         <ScoreBoard
           scoreA={s.score.A} scoreB={s.score.B}
@@ -176,7 +211,7 @@ export default function MusTable() {
           <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.09]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.25) 0.5px, transparent 0.7px)", backgroundSize: "6px 6px" }} />
           {/* Partner (top) */}
           <div className="absolute top-3 left-1/2 -translate-x-1/2">
-            <SeatView player={partner} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[partner.seat]} active={activeSeats.includes(partner.seat)} round={s.musRound} dealFrom="top" {...cardFx(partner.seat)} />
+            <SeatView player={partner} manoSeat={s.manoSeat} reveal={s.reveal} action={s.seatActions[partner.seat]} active={activeSeats.includes(partner.seat)} round={s.musRound} dealFrom="top" sena={s.senaBySeat[partner.seat]} {...cardFx(partner.seat)} />
           </div>
           {/* Opponents (sides) */}
           <div className="absolute left-2 top-1/2 -translate-y-1/2">
@@ -192,7 +227,10 @@ export default function MusTable() {
         </div>
 
         {/* You (bottom) */}
-        <div className="flex flex-col items-center gap-1.5">
+        <div className="relative flex flex-col items-center gap-1.5">
+          <AnimatePresence>
+            {s.senaBySeat[me] && <SenaBubble key={s.senaBySeat[me]} id={s.senaBySeat[me]!} />}
+          </AnimatePresence>
           <div className="h-6 flex items-center">
             <AnimatePresence>
               {s.seatActions[me] && <ActionBubble key={s.seatActions[me]} text={s.seatActions[me]!} big />}
@@ -226,6 +264,16 @@ export default function MusTable() {
           </Reorder.Group>
           <PlayerTag player={you} manoSeat={s.manoSeat} active={activeSeats.includes(me)} />
         </div>
+
+        {/* Trainer hint (solo, opt-in) */}
+        {trainer && (
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center gap-2 text-[11px] -mb-1">
+            <span className="px-2 py-1 rounded-full border border-accent/40 bg-accent/5 text-accent font-medium">
+              {trainer.participates ? `${LANCE_LABEL[trainer.lance]}: ${trainer.pct}% de ganar` : "No juegas este lance"}
+            </span>
+            {trainer.rec && <span className="px-2 py-1 rounded-full border border-border text-muted">Juega: <b className="text-foreground">{trainer.rec}</b></span>}
+          </motion.div>
+        )}
 
         {/* Controls */}
         <div className="min-h-[104px] flex items-center justify-center">
@@ -344,11 +392,14 @@ function CenterInfo({ phase, lanceLabel, stake, message, isOrdago, declaring }: 
   );
 }
 
-function SeatView({ player, manoSeat, reveal, action, active, round, dealFrom, highlight, dimmed }: {
-  player: MusPlayer; manoSeat: number; reveal: boolean; action: string | null; active: boolean; round: number; dealFrom: "top" | "left" | "right"; highlight?: boolean; dimmed?: boolean;
+function SeatView({ player, manoSeat, reveal, action, active, round, dealFrom, highlight, dimmed, sena }: {
+  player: MusPlayer; manoSeat: number; reveal: boolean; action: string | null; active: boolean; round: number; dealFrom: "top" | "left" | "right"; highlight?: boolean; dimmed?: boolean; sena?: SenaId | null;
 }) {
   return (
-    <div className="flex flex-col items-center gap-1 w-[132px]">
+    <div className="relative flex flex-col items-center gap-1 w-[132px]">
+      <AnimatePresence>
+        {sena && <SenaBubble key={sena} id={sena} />}
+      </AnimatePresence>
       <div className="h-6 flex items-center justify-center">
         <AnimatePresence>
           {action && <ActionBubble key={action} text={action} />}
@@ -372,6 +423,68 @@ function PlayerTag({ player, manoSeat, active, onFelt }: { player: MusPlayer; ma
       <span className={`text-[11px] font-medium max-w-[64px] truncate ${onFelt ? "text-white" : ""}`}>{player.name}</span>
       {isMano && <span className={`text-[7px] px-1 py-0.5 rounded font-bold leading-none ${onFelt ? "bg-white text-[#0c211a]" : "bg-foreground text-background"}`}>MANO</span>}
     </div>
+  );
+}
+
+function betLabel(d: ReturnType<typeof decideBet>): string {
+  switch (d.action) {
+    case "paso": return "Paso";
+    case "envido": return `Envido ${d.amount}`;
+    case "quiero": return "Quiero";
+    case "noquiero": return "No quiero";
+    case "subir": return `Subo ${d.amount}`;
+    case "ordago": return "Órdago";
+  }
+}
+
+function SenaPicker({ open, onToggle, senas, onPick }: {
+  open: boolean; onToggle: () => void; senas: SenaId[]; onPick: (id: SenaId) => void;
+}) {
+  return (
+    <div className="absolute top-3 left-3 z-30 flex flex-col items-start gap-2">
+      <button
+        onClick={onToggle}
+        className={`px-3 h-7 rounded-full border text-xs font-medium flex items-center gap-1.5 transition-colors ${open ? "border-accent text-accent" : "border-border text-muted hover:text-foreground hover:border-foreground"}`}
+      >
+        <SenaIcon id="treintaiuna" size={15} /> Señas
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.96 }}
+            className="rounded-2xl border border-border bg-background p-2 shadow-xl flex flex-col gap-1 min-w-[168px]"
+          >
+            {senas.length === 0 ? (
+              <span className="text-[11px] text-muted px-2 py-1.5">No tienes seña que hacer</span>
+            ) : (
+              senas.map((id) => (
+                <button key={id} onClick={() => onPick(id)} className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-foreground/5 text-left">
+                  <SenaIcon id={id} size={22} className="text-accent" />
+                  <span className="flex flex-col leading-tight">
+                    <span className="text-xs font-medium">{SENAS[id].label}</span>
+                    <span className="text-[9px] text-muted">{SENAS[id].gesture}</span>
+                  </span>
+                </button>
+              ))
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function SenaBubble({ id }: { id: SenaId }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.5, y: 6 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.5 }}
+      className="absolute -top-1 z-20 flex items-center gap-1 rounded-full bg-accent text-white px-2 py-0.5 shadow-lg"
+    >
+      <SenaIcon id={id} size={16} />
+      <span className="text-[10px] font-semibold">{SENAS[id].label}</span>
+    </motion.div>
   );
 }
 

@@ -59,6 +59,8 @@ export interface CustomizeState {
   musDefaultVaca: VacaPoints;
   musDefaultBestOf: BestOf;
   musBotSpeed: BotSpeed;
+  musSenas: boolean;
+  musTrainer: boolean;
   friends: string[];
   autoDealDelay: number; // 0 = off, 1-5 seconds
   showProbabilities: boolean;
@@ -86,6 +88,8 @@ interface CustomizeActions {
   setMusDefaultVaca: (v: VacaPoints) => void;
   setMusDefaultBestOf: (b: BestOf) => void;
   setMusBotSpeed: (s: BotSpeed) => void;
+  setMusSenas: (on: boolean) => void;
+  setMusTrainer: (on: boolean) => void;
   addFriend: (username: string) => void;
   removeFriend: (username: string) => void;
   setAutoDealDelay: (seconds: number) => void;
@@ -135,6 +139,8 @@ const defaults: CustomizeState = {
   musDefaultVaca: 30,
   musDefaultBestOf: 3,
   musBotSpeed: "normal",
+  musSenas: true,
+  musTrainer: false,
   friends: [],
   autoDealDelay: 0,
   showProbabilities: true,
@@ -217,6 +223,14 @@ export const useCustomizeStore = create<CustomizeStore>((set, get) => {
     setMusBotSpeed: (musBotSpeed) => {
       set({ musBotSpeed });
       saveState({ ...get(), musBotSpeed });
+    },
+    setMusSenas: (musSenas) => {
+      set({ musSenas });
+      saveState({ ...get(), musSenas });
+    },
+    setMusTrainer: (musTrainer) => {
+      set({ musTrainer });
+      saveState({ ...get(), musTrainer });
     },
     addFriend: (username) => {
       const friend = username.toLowerCase().trim();

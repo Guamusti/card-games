@@ -128,6 +128,8 @@ export interface MusConfig {
   difficulty: MusDifficulty;
   /** Pace of bot pauses. Default "normal". */
   botSpeed: BotSpeed;
+  /** Whether hand signals (señas) are in play. */
+  senasEnabled: boolean;
 }
 
 export const DEFAULT_MUS_CONFIG: MusConfig = {
@@ -136,6 +138,7 @@ export const DEFAULT_MUS_CONFIG: MusConfig = {
   reyes8: true,
   difficulty: "normal",
   botSpeed: "normal",
+  senasEnabled: true,
 };
 
 // ─── Modes ───────────────────────────────────────────────────

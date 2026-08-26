@@ -11,6 +11,7 @@ import {
   scoreLance, resolveLanceWinner, type LanceOutcome, type SeatHand, type LanceScore,
 } from "./scoring";
 import { decideMus, decideBet } from "./ai";
+import { availableSenas, SENA_PROB, type SenaId } from "./senas";
 import { useCustomizeStore } from "../customize/store";
 import { useXPStore } from "../xp";
 
@@ -85,11 +86,15 @@ export interface MusState {
   message: string | null;
   winnerTeam: Team | null;
   ordagoVaca: Team | null;
+  /** Active seña per seat (transient; shown briefly to teammates). */
+  senaBySeat: (SenaId | null)[];
 }
 
 interface MusActions {
   startSolo: (config?: Partial<MusConfig>) => void;
   voteMus: (mus: boolean, label?: string) => void;
+  makeSena: (id: SenaId) => void;
+  submitSena: (seat: number, id: SenaId) => void;
   toggleDiscard: (index: number) => void;
   confirmDiscard: () => void;
   declare: () => void;
@@ -115,6 +120,7 @@ export type MusNetAction =
   | { t: "bet"; a: HumanBetAction }
   | { t: "discard"; discards: number[] }
   | { t: "declare" }
+  | { t: "sena"; id: SenaId }
   | { t: "next" };
 
 let onlineSend: ((seat: number, action: MusNetAction) => void) | null = null;
@@ -252,6 +258,7 @@ function initialState(): MusState {
     message: null,
     winnerTeam: null,
     ordagoVaca: null,
+    senaBySeat: [null, null, null, null],
   };
 }
 
@@ -290,12 +297,42 @@ export const useMusStore = create<MusStore>((set, get) => {
       reveal: false, handScores: [], seatActions: [null, null, null, null],
       lances: { grande: null, chica: null, pares: null, juego: null },
       currentLance: null, lastAction: null, message: "Mus…", winnerTeam: null,
-      ordagoVaca: null,
+      ordagoVaca: null, senaBySeat: [null, null, null, null],
     });
+    scheduleBotSenas();
     maybeBotMus();
   }
 
   // ── Mus voting ──
+  // ── Señas ──
+  function applySena(seat: number, id: SenaId) {
+    const s = get();
+    if (!s.config.senasEnabled) return;
+    const senaBySeat = s.senaBySeat.slice();
+    senaBySeat[seat] = id;
+    set({ senaBySeat });
+    schedule(() => {
+      const cur = get().senaBySeat.slice();
+      if (cur[seat] === id) { cur[seat] = null; set({ senaBySeat: cur }); }
+    }, 2600);
+  }
+
+  /** Host: bots flash a seña to their partner with a per-difficulty chance. */
+  function scheduleBotSenas() {
+    const s = get();
+    if (!s.isHost || !s.config.senasEnabled) return;
+    for (const p of s.players) {
+      if (p.isHuman) continue;
+      const senas = availableSenas(p.cards, s.config.reyes8);
+      if (senas.length === 0) continue;
+      if (Math.random() > SENA_PROB[s.config.difficulty]) continue;
+      const id = senas[0]; // best-first
+      schedule(() => {
+        if (get().phase === "mus" || get().phase === "grande") applySena(p.seat, id);
+      }, 500 + Math.random() * 1600);
+    }
+  }
+
   function maybeBotMus() {
     const s = get();
     if (s.phase !== "mus") return;
@@ -400,7 +437,8 @@ export const useMusStore = create<MusStore>((set, get) => {
       message: "Reparto…", lastAction: null, seatActions: counts,
     });
     schedule(() => {
-      set({ phase: "mus", seatActions: [null, null, null, null], message: "Mus…" });
+      set({ phase: "mus", seatActions: [null, null, null, null], message: "Mus…", senaBySeat: [null, null, null, null] });
+      scheduleBotSenas();
       maybeBotMus();
     }, 1400);
   }
@@ -771,7 +809,7 @@ export const useMusStore = create<MusStore>((set, get) => {
 
     startSolo: (config) => {
       const cust = useCustomizeStore.getState();
-      const merged = { ...DEFAULT_MUS_CONFIG, difficulty: cust.aiDifficulty, botSpeed: cust.musBotSpeed, ...config };
+      const merged = { ...DEFAULT_MUS_CONFIG, difficulty: cust.aiDifficulty, botSpeed: cust.musBotSpeed, senasEnabled: cust.musSenas, ...config };
       set({ ...initialState(), config: merged, mode: "solo" });
       dealNewHand(0);
     },
@@ -781,6 +819,17 @@ export const useMusStore = create<MusStore>((set, get) => {
       const s = get();
       if (s.isHost) get().submitMusVote(s.localSeat, mus, label);
       else onlineSend?.(s.localSeat, { t: "mus", mus, label });
+    },
+
+    makeSena: (id) => {
+      const s = get();
+      if (!s.config.senasEnabled) return;
+      if (s.isHost) get().submitSena(s.localSeat, id);
+      else onlineSend?.(s.localSeat, { t: "sena", id });
+    },
+    submitSena: (seat, id) => {
+      if (!get().isHost) return;
+      applySena(seat, id);
     },
 
     toggleDiscard: (index) => {
@@ -903,7 +952,7 @@ export const useMusStore = create<MusStore>((set, get) => {
         declaredSeats: s.declaredSeats, handScores: s.handScores,
         score: s.score, vacas: s.vacas, reveal: s.reveal, seatActions: s.seatActions,
         lastAction: s.lastAction, message: s.message, winnerTeam: s.winnerTeam,
-        ordagoVaca: s.ordagoVaca,
+        ordagoVaca: s.ordagoVaca, senaBySeat: s.senaBySeat,
       };
     },
   };
