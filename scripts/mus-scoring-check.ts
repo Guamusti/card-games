@@ -5,6 +5,7 @@ import {
 } from "../src/engine/mus/rules";
 import { scoreLance, declinedStakePoints, type SeatHand } from "../src/engine/mus/scoring";
 import { botEloDelta } from "../src/engine/mus/stats";
+import { isPereteHand } from "../src/engine/mus/store";
 import type { SpanishCard, SpanishRank, SpanishSuit, Team } from "../src/engine/mus/types";
 
 const SUITS: SpanishSuit[] = ["oros", "copas", "espadas", "bastos"];
@@ -39,6 +40,8 @@ ok("grande: 4 reyes > 4 ases", compareForLance(evaluateMusHand(hand([12, 12, 12,
 ok("chica: 4 ases > 4 reyes", compareForLance(evaluateMusHand(hand([1, 1, 1, 1]), R8), evaluateMusHand(hand([12, 12, 12, 12]), R8), "chica") > 0);
 eq("juego sum [12,12,7,5] = 32", evaluateJuego(hand([12, 12, 7, 5]), R8).sum, 32);
 ok("juego cmp: 31 > 32", compareForLance(evaluateMusHand(hand([12, 12, 12, 1]), R8), evaluateMusHand(hand([12, 12, 7, 5]), R8), "juego") > 0);
+ok("perete 4-5-6-7 se reconoce sin importar el orden", isPereteHand(hand([7, 4, 6, 5])));
+ok("no es perete si falta una carta de la escalera", !isPereteHand(hand([4, 5, 6, 10])));
 
 // ── Grande ──
 {

@@ -63,6 +63,7 @@ export default function MusTable() {
   const musTurnHuman = s.phase === "mus" && musOrder[s.musActiveIdx] === me;
   const stakeOnTable = rt && rt.bet.envidoTeam !== null && !rt.bet.isOrdago ? currentStake : 0;
   const isOrdago = !!rt?.bet.isOrdago && rt.bet.envidoTeam !== null;
+  const canDiscard = s.phase === "discard" && (s.pereteDiscardSeats.length === 0 || s.pereteDiscardSeats.includes(me));
 
   useEffect(() => {
     if (s.phase === "idle") {
@@ -274,8 +275,8 @@ export default function MusTable() {
                     card={c}
                     delay={i * 0.09}
                     dealFrom="bottom"
-                    selected={s.phase === "discard" && s.discardSelection.includes(i)}
-                    onClick={s.phase === "discard" ? () => s.toggleDiscard(i) : undefined}
+                    selected={canDiscard && s.discardSelection.includes(i)}
+                    onClick={canDiscard ? () => s.toggleDiscard(i) : undefined}
                     {...cardFx(me)}
                   />
                 </Reorder.Item>
@@ -311,7 +312,7 @@ export default function MusTable() {
           {s.phase === "discard" && s.discardConfirmed.includes(me) && (
             <span className="text-xs text-muted animate-pulse">Esperando a los demás…</span>
           )}
-          {s.phase === "discard" && !s.discardConfirmed.includes(me) && (
+          {s.phase === "discard" && !s.discardConfirmed.includes(me) && canDiscard && (
             <div className="flex flex-col items-center gap-2 w-full max-w-xs">
               <span className="text-xs text-muted">Toca las cartas a descartar</span>
               <button
@@ -322,6 +323,9 @@ export default function MusTable() {
                 Descartar {s.discardSelection.length > 0 ? `(${s.discardSelection.length})` : ""}
               </button>
             </div>
+          )}
+          {s.phase === "discard" && !s.discardConfirmed.includes(me) && !canDiscard && (
+            <span className="text-xs text-muted animate-pulse">Perete: esperando a que descarte quien lo tiene…</span>
           )}
 
           {s.declaring && !s.declaredSeats.includes(me) && (

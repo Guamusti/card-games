@@ -68,6 +68,8 @@ export interface MusState {
   discardSelection: number[];          // local player's current picks
   discardSelections: Record<number, number[]>; // per-seat picks (host aggregates)
   discardConfirmed: number[];          // seats that confirmed their discard
+  /** Seats entitled to the exceptional Perete discard after Mus is cut. */
+  pereteDiscardSeats: number[];
   musRound: number;
   // lances
   lances: Record<Lance, LanceRuntime | null>;
@@ -149,6 +151,12 @@ const AI_AVATARS = ["", "", "", ""];
 
 function manoOrder(manoSeat: number): number[] {
   return [0, 1, 2, 3].map((i) => (manoSeat + i) % 4);
+}
+
+/** Perete is the four-card run 4-5-6-7. Its holder may discard even if Mus is cut. */
+export function isPereteHand(cards: SpanishCard[]): boolean {
+  const ranks = cards.map((card) => card.rank).sort((a, b) => a - b);
+  return ranks.length === 4 && ranks.every((rank, index) => rank === index + 4);
 }
 
 function makePlayers(humanSeats: number[] = [0], names: Record<number, string> = {}): MusPlayer[] {
@@ -246,6 +254,7 @@ function initialState(): MusState {
     discardSelection: [],
     discardSelections: {},
     discardConfirmed: [],
+    pereteDiscardSeats: [],
     musRound: 0,
     lances: { grande: null, chica: null, pares: null, juego: null },
     currentLance: null,
@@ -367,10 +376,18 @@ export const useMusStore = create<MusStore>((set, get) => {
     }
 
     if (!mus) {
-      const ranks = s.players[seat].cards.map((card) => card.rank).sort((a, b) => a - b);
-      const isPerete = ranks.length === 4 && ranks.every((rank, index) => rank === index + 4);
-      if (isPerete && s.players[seat].isHuman) {
-        recordAction(seat, "Perete — descarto", { phase: "discard", message: "Perete: descarta cartas" });
+      // A Perete holder keeps the right to throw all four cards even when
+      // another player has already cut Mus before their turn.
+      const pereteSeats = s.players.filter((player) => isPereteHand(player.cards)).map((player) => player.seat);
+      const humanPereteSeats = pereteSeats.filter((pereteSeat) => s.humanSeats.includes(pereteSeat));
+      if (humanPereteSeats.length > 0) {
+        const seatActions = s.seatActions.slice();
+        seatActions[seat] = pereteSeats.includes(seat) ? "Perete — descarto" : (label || "No hay mus");
+        set({
+          phase: "discard", musActiveIdx: 0, discardSelection: [], discardSelections: {}, discardConfirmed: [],
+          pereteDiscardSeats: pereteSeats, seatActions, lastAction: { seat, text: seatActions[seat]! },
+          message: "Perete: descarta las cartas que quieras",
+        });
         return;
       }
       // Someone cuts → betting begins.
@@ -382,7 +399,7 @@ export const useMusStore = create<MusStore>((set, get) => {
     const nextIdx = s.musActiveIdx + 1;
     if (nextIdx >= 4) {
       // Everyone wants mus → discard phase.
-      set({ phase: "discard", musActiveIdx: 0, discardSelection: [], message: "Descarta cartas" });
+      set({ phase: "discard", musActiveIdx: 0, discardSelection: [], pereteDiscardSeats: [], message: "Descarta cartas" });
       maybeBotDiscardResolve();
     } else {
       set({ musActiveIdx: nextIdx });
@@ -416,7 +433,10 @@ export const useMusStore = create<MusStore>((set, get) => {
     const counts: (string | null)[] = [null, null, null, null];
     const players = s.players.map((p) => {
       let discards: number[];
-      if (p.isHuman) {
+      // During the Perete exception, everybody else keeps their hand.
+      if (s.pereteDiscardSeats.length > 0 && !s.pereteDiscardSeats.includes(p.seat)) {
+        discards = [];
+      } else if (p.isHuman) {
         const sel = s.discardSelections[p.seat] ?? (p.seat === s.localSeat ? s.discardSelection : []);
         discards = sel.length > 0 ? sel : [worstCardIndex(p.cards, s.config.reyes8)];
       } else {
@@ -435,7 +455,7 @@ export const useMusStore = create<MusStore>((set, get) => {
     // Brief "dealing" beat so players see how many each threw and the cards fly in.
     set({
       players, deck, discardPile, phase: "dealing", musActiveIdx: 0,
-      musRound: s.musRound + 1, discardSelection: [], discardSelections: {}, discardConfirmed: [],
+      musRound: s.musRound + 1, discardSelection: [], discardSelections: {}, discardConfirmed: [], pereteDiscardSeats: [],
       message: "Reparto…", lastAction: null, seatActions: counts,
     });
     schedule(() => {
@@ -837,6 +857,7 @@ export const useMusStore = create<MusStore>((set, get) => {
     toggleDiscard: (index) => {
       const s = get();
       if (s.phase !== "discard") return;
+      if (s.pereteDiscardSeats.length > 0 && !s.pereteDiscardSeats.includes(s.localSeat)) return;
       const sel = s.discardSelection.includes(index)
         ? s.discardSelection.filter((i) => i !== index)
         : [...s.discardSelection, index];
@@ -846,6 +867,7 @@ export const useMusStore = create<MusStore>((set, get) => {
     confirmDiscard: () => {
       const s = get();
       if (s.phase !== "discard") return;
+      if (s.pereteDiscardSeats.length > 0 && !s.pereteDiscardSeats.includes(s.localSeat)) return;
       if (s.discardSelection.length === 0) return; // must discard at least 1
       if (s.isHost) get().submitDiscard(s.localSeat, s.discardSelection);
       else onlineSend?.(s.localSeat, { t: "discard", discards: s.discardSelection });
@@ -894,12 +916,16 @@ export const useMusStore = create<MusStore>((set, get) => {
     submitDiscard: (seat, discards) => {
       const s = get();
       if (!s.isHost || s.phase !== "discard") return;
+      if (s.pereteDiscardSeats.length > 0 && !s.pereteDiscardSeats.includes(seat)) return;
       const picks = discards.length > 0 ? discards : [worstCardIndex(s.players[seat].cards, s.config.reyes8)];
       const selections = { ...s.discardSelections, [seat]: picks };
       const confirmed = s.discardConfirmed.includes(seat) ? s.discardConfirmed : [...s.discardConfirmed, seat];
       set({ discardSelections: selections, discardConfirmed: confirmed });
-      // Redeal once every human seat has confirmed.
-      if (s.humanSeats.every((hs) => confirmed.includes(hs))) {
+      // Ordinary Mus waits for every player; Perete waits only for its holder(s).
+      const requiredSeats = s.pereteDiscardSeats.length > 0
+        ? s.humanSeats.filter((humanSeat) => s.pereteDiscardSeats.includes(humanSeat))
+        : s.humanSeats;
+      if (requiredSeats.every((humanSeat) => confirmed.includes(humanSeat))) {
         doDiscardAndRedeal();
       }
     },
@@ -949,7 +975,7 @@ export const useMusStore = create<MusStore>((set, get) => {
         discardPile: s.discardPile, dealerSeat: s.dealerSeat, manoSeat: s.manoSeat,
         phase: s.phase, humanSeats: s.humanSeats, roomCode: s.roomCode,
         musActiveIdx: s.musActiveIdx, discardSelections: s.discardSelections,
-        discardConfirmed: s.discardConfirmed, musRound: s.musRound,
+        discardConfirmed: s.discardConfirmed, pereteDiscardSeats: s.pereteDiscardSeats, musRound: s.musRound,
         lances: s.lances, currentLance: s.currentLance, declaring: s.declaring,
         declaredSeats: s.declaredSeats, handScores: s.handScores,
         score: s.score, vacas: s.vacas, reveal: s.reveal, seatActions: s.seatActions,
