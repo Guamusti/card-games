@@ -112,7 +112,7 @@ export function scoreLance(
       pts += t;
       detail += t > 0 ? ` + pares ${t}` : "";
     } else if (lance === "juego") {
-      const base = juegoBaseForTeam(participants, outcome.envidoTeam, order);
+      const base = juegoTantosForTeam(participants, outcome.envidoTeam);
       pts += base;
       detail += base > 0 ? ` + juego ${base}` : "";
     }
@@ -132,8 +132,8 @@ export function scoreLance(
     pts += outcome.stake;
     detail = `Envite +${outcome.stake}`;
   } else {
-    // en paso
-    if (lance === "grande" || lance === "chica" || lance === "juego") {
+    // en paso — grande/chica score a flat 1; juego scores per-player below.
+    if (lance === "grande" || lance === "chica") {
       pts += LANCE_BASE[lance];
       detail = `En paso +${LANCE_BASE[lance]}`;
     } else {
@@ -145,15 +145,11 @@ export function scoreLance(
     const t = paresTantosForTeam(participants, winner.team);
     pts += t;
     detail += (detail ? " + " : "") + `pares ${t}`;
-  } else if (lance === "juego" && outcome.kind === "quiero") {
-    // juego base already handled by LANCE_BASE for paso; add for quiero too
-    const base = juegoBaseForTeam(participants, winner.team, order);
-    pts += base;
-    detail += ` + juego ${base}`;
-  } else if (lance === "juego" && outcome.kind === "paso") {
-    // LANCE_BASE added base 2 already; add the 31 bonus if applicable
-    const bonus = juego31Bonus(participants, winner.team);
-    if (bonus) { pts += bonus; detail += ` + 31`; }
+  } else if (lance === "juego") {
+    // Each player of the winning team with juego scores: 2, or 3 for a 31.
+    const t = juegoTantosForTeam(participants, winner.team);
+    pts += t;
+    detail += (detail ? " + " : "") + `juego ${t}`;
   }
 
   return { lance, winnerTeam: winner.team, points: pts, detail };
@@ -182,16 +178,12 @@ function scorePunto(
   return { lance, winnerTeam: winner.team, points: pts, detail };
 }
 
-/** Juego base for a team = 2, plus 1 if that team's winning hand is 31. */
-function juegoBaseForTeam(participants: SeatHand[], team: Team, order: number[]): number {
-  const winner = resolveLanceWinner("juego", participants, order);
-  if (!winner || winner.team !== team) return 2;
-  return 2 + juego31Bonus(participants, team);
-}
-
-function juego31Bonus(participants: SeatHand[], team: Team): number {
-  const has31 = participants.some(
-    (p) => p.team === team && p.eval.juego.sum === 31,
-  );
-  return has31 ? 1 : 0;
+/**
+ * Juego tantos for a team: each member holding juego scores 2, or 3 for a 31.
+ * (Two juegos = 4, two 31s = 6, one of each = 5.)
+ */
+function juegoTantosForTeam(participants: SeatHand[], team: Team): number {
+  return participants
+    .filter((p) => p.team === team && p.eval.juego.hasJuego)
+    .reduce((sum, p) => sum + (p.eval.juego.sum === 31 ? 3 : 2), 0);
 }
